@@ -1,5 +1,6 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Link } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,6 +24,14 @@ type DonateFormState = {
 
 const presetAmounts = [25, 50, 100, 250] as const;
 
+/** Demo: historical donations for the grading donor account (INTEX) */
+const DEMO_DONOR_HISTORY: { date: string; amount: string; type: string; reference: string }[] = [
+  { date: "2025-12-18", amount: "$100.00", type: "One-time", reference: "DN-2025-4412" },
+  { date: "2025-09-01", amount: "$50/mo", type: "Monthly", reference: "DN-2025-3891" },
+  { date: "2025-06-22", amount: "$250.00", type: "One-time", reference: "DN-2025-2104" },
+  { date: "2024-11-15", amount: "$25/mo", type: "Monthly", reference: "DN-2024-9001" },
+];
+
 function readNumber(value: string) {
   const n = Number(value);
   return Number.isFinite(n) ? n : 0;
@@ -30,6 +39,7 @@ function readNumber(value: string) {
 
 export default function DonatePage() {
   const { toast } = useToast();
+  const { isAuthenticated, isLoading, user } = useAuth();
 
   const [submittedId, setSubmittedId] = useState<string | null>(null);
   const [state, setState] = useState<DonateFormState>({
@@ -59,6 +69,60 @@ export default function DonatePage() {
     state.firstName.trim().length > 0 &&
     state.lastName.trim().length > 0 &&
     isValidEmail;
+
+  useEffect(() => {
+    if (!user) return;
+    const parts = user.name.trim().split(/\s+/);
+    setState((s) => ({
+      ...s,
+      firstName: parts[0] ?? "",
+      lastName: parts.slice(1).join(" ") || "",
+      email: user.email,
+    }));
+  }, [user]);
+
+  if (isLoading) {
+    return (
+      <div className="py-24 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
+          <p className="text-muted-foreground mt-3 text-sm">Loading…</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div className="py-16">
+        <div className="section-container max-w-2xl mx-auto text-center">
+          <Badge variant="default" className="mb-4">
+            Donate
+          </Badge>
+          <h1 className="font-heading text-4xl md:text-5xl font-bold mb-4">
+            Sign in to give
+          </h1>
+          <p className="text-muted-foreground text-lg leading-relaxed mb-8">
+            To protect donor privacy and tie your gift to your impact, Bonfire asks you to sign in
+            before completing a donation. If you don&apos;t have an account yet, use the demo donor
+            credentials from the sign-in page for this course.
+          </p>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <Button variant="hero" size="lg" asChild>
+              <Link to="/login?redirect=/donate">Sign in to donate</Link>
+            </Button>
+            <Button variant="outline" size="lg" asChild>
+              <Link to="/impact">See our impact first</Link>
+            </Button>
+          </div>
+          <p className="text-sm text-muted-foreground mt-8 leading-relaxed">
+            Grading note: use the <strong>donor@bonfire.org</strong> account (no MFA) to view sample
+            giving history after login.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   if (submittedId) {
     return (
@@ -140,6 +204,41 @@ export default function DonatePage() {
             </p>
           </div>
 
+          {user?.role === "donor" && user.email.toLowerCase() === "donor@bonfire.org" && (
+            <Card className="card-warm mb-8">
+              <CardHeader>
+                <CardTitle className="font-heading">Your giving history</CardTitle>
+                <p className="text-sm text-muted-foreground font-normal">
+                  Sample history for the grading donor account (INTEX requirement).
+                </p>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto rounded-xl border border-border">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-border bg-muted/30 text-left">
+                        <th className="p-3 font-medium text-muted-foreground">Date</th>
+                        <th className="p-3 font-medium text-muted-foreground">Type</th>
+                        <th className="p-3 font-medium text-muted-foreground">Amount</th>
+                        <th className="p-3 font-medium text-muted-foreground hidden sm:table-cell">Reference</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {DEMO_DONOR_HISTORY.map((row) => (
+                        <tr key={row.reference} className="border-b border-border last:border-0">
+                          <td className="p-3">{row.date}</td>
+                          <td className="p-3">{row.type}</td>
+                          <td className="p-3 font-medium">{row.amount}</td>
+                          <td className="p-3 font-mono text-xs hidden sm:table-cell">{row.reference}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           <div className="grid lg:grid-cols-5 gap-8 items-start">
             <div className="lg:col-span-3">
               <Card className="card-warm">
@@ -148,6 +247,11 @@ export default function DonatePage() {
                     <HeartHandshake className="h-5 w-5 text-primary" />
                     Make a donation
                   </CardTitle>
+                  {user && (
+                    <p className="text-sm text-muted-foreground font-normal">
+                      Signed in as <span className="font-medium text-foreground">{user.email}</span>
+                    </p>
+                  )}
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <div className="grid sm:grid-cols-2 gap-3">

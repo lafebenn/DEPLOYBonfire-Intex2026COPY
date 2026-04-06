@@ -2,12 +2,15 @@ import { Outlet, Link } from "react-router-dom";
 import { BonfireLogo } from "@/components/BonfireLogo";
 import { Button } from "@/components/ui/button";
 import { CookieConsentBanner } from "@/components/CookieConsentBanner";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function PublicLayout() {
+  const { user, isAuthenticated, logout } = useAuth();
+
   return (
     <div className="min-h-screen flex flex-col">
       <header className="border-b border-border bg-card/80 backdrop-blur-sm sticky top-0 z-40">
-        <div className="section-container flex items-center justify-between h-16">
+        <div className="section-container flex items-center justify-between h-16 gap-4">
           <BonfireLogo />
           <nav className="hidden md:flex items-center gap-6">
             <Link to="/" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Home</Link>
@@ -15,9 +18,28 @@ export default function PublicLayout() {
             <Link to="/donate" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Donate</Link>
             <Link to="/privacy" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Privacy</Link>
           </nav>
-          <Button asChild size="sm">
-            <Link to="/login">Staff Login</Link>
-          </Button>
+          <div className="flex items-center gap-2 shrink-0">
+            {isAuthenticated ? (
+              <>
+                {user?.role === "donor" ? (
+                  <Button asChild size="sm" variant="default">
+                    <Link to="/donate">Donate</Link>
+                  </Button>
+                ) : (
+                  <Button asChild size="sm">
+                    <Link to="/app">Staff portal</Link>
+                  </Button>
+                )}
+                <Button variant="ghost" size="sm" onClick={() => logout()}>
+                  Sign out
+                </Button>
+              </>
+            ) : (
+              <Button asChild size="sm">
+                <Link to="/login">Sign in</Link>
+              </Button>
+            )}
+          </div>
         </div>
       </header>
 
