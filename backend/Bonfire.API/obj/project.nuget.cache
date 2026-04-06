@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "dgSpecHash": "2xsUsExYSpk=",
+  "success": true,
+  "projectFilePath": "C:\\Users\\jhunt\\OneDrive - Brigham Young University\\Documents\\School\\INTEX 2026\\bonfire\\backend\\Bonfire.API\\Bonfire.API.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\jhunt\\.nuget\\packages\\microsoft.aspnetcore.openapi\\10.0.5\\microsoft.aspnetcore.openapi.10.0.5.nupkg.sha512",
+    "C:\\Users\\jhunt\\.nuget\\packages\\microsoft.openapi\\2.0.0\\microsoft.openapi.2.0.0.nupkg.sha512"
+  ],
+  "logs": []
+}

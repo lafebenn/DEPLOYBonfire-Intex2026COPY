@@ -1,0 +1,6 @@
+@Bonfire.API_HostAddress = http://localhost:5122
+
+GET {{Bonfire.API_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
