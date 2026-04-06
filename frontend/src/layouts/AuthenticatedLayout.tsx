@@ -58,7 +58,7 @@ export default function AuthenticatedLayout() {
       >
         <div className="h-16 flex items-center px-4 border-b border-sidebar-border">
           {sidebarOpen ? (
-            <BonfireLogo />
+            <BonfireLogo variant="sidebar" />
           ) : (
             <div className="mx-auto">
               <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
