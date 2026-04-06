@@ -2,23 +2,33 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Heart, Shield, Users, ArrowRight, Flame } from "lucide-react";
 import { Link } from "react-router-dom";
+import bonfireImage from "@/assets/bonfire-image.png";
 
 export default function LandingPage() {
   return (
     <div>
       {/* Hero */}
       <section className="py-20 md:py-32 relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-secondary/5" />
+        <div className="absolute inset-0">
+          <img
+            src={bonfireImage}
+            alt=""
+            className="h-full w-full object-cover"
+            aria-hidden="true"
+          />
+          <div className="absolute inset-0 bg-black/55" />
+          <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-secondary/10" />
+        </div>
         <div className="section-container relative">
           <div className="max-w-2xl mx-auto text-center">
             <div className="inline-flex items-center gap-2 bg-primary/10 text-primary rounded-full px-4 py-1.5 text-sm font-medium mb-8">
               <Flame className="h-4 w-4" />
               Where healing begins
             </div>
-            <h1 className="font-heading text-4xl md:text-5xl lg:text-6xl font-bold text-foreground leading-tight mb-6">
+            <h1 className="font-heading text-4xl md:text-5xl lg:text-6xl font-bold text-white leading-tight mb-6">
               A light in the darkness for trafficking survivors
             </h1>
-            <p className="text-lg text-muted-foreground leading-relaxed mb-10 max-w-xl mx-auto">
+            <p className="text-lg text-white/85 leading-relaxed mb-10 max-w-xl mx-auto">
               Bonfire empowers organizations to protect, rehabilitate, and restore hope to survivors through compassionate case management and community support.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -27,7 +37,12 @@ export default function LandingPage() {
                   See Our Impact <ArrowRight className="h-5 w-5 ml-1" />
                 </Link>
               </Button>
-              <Button variant="outline" size="lg" asChild>
+              <Button
+                variant="outline"
+                size="lg"
+                className="border-white/70 text-white bg-white/0 hover:bg-white/10 hover:border-white"
+                asChild
+              >
                 <Link to="/login">Staff Portal</Link>
               </Button>
             </div>

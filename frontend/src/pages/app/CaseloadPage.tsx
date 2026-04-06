@@ -4,6 +4,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search, Plus, Filter } from "lucide-react";
 import { useState } from "react";
+import { Link } from "react-router-dom";
+import { localData } from "@/lib/localData";
 
 const residents = [
   { id: "R-2024-089", name: "Jane D.", status: "Active", program: "Residential", progress: 75, admitted: "2024-01-15" },
@@ -22,7 +24,9 @@ const statusColors: Record<string, "default" | "success" | "warning" | "outline"
 
 export default function CaseloadPage() {
   const [search, setSearch] = useState("");
-  const filtered = residents.filter(
+  const stored = localData.listIntakes();
+  const allResidents = [...stored, ...residents];
+  const filtered = allResidents.filter(
     (r) => r.name.toLowerCase().includes(search.toLowerCase()) || r.id.toLowerCase().includes(search.toLowerCase())
   );
 
@@ -31,10 +35,12 @@ export default function CaseloadPage() {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h2 className="font-heading text-2xl font-bold">Caseload Inventory</h2>
-          <p className="text-muted-foreground text-sm mt-1">{residents.length} residents across all programs</p>
+          <p className="text-muted-foreground text-sm mt-1">{allResidents.length} residents across all programs</p>
         </div>
-        <Button>
-          <Plus className="h-4 w-4 mr-2" /> New Intake
+        <Button asChild>
+          <Link to="/app/intake/new">
+            <Plus className="h-4 w-4 mr-2" /> New Intake
+          </Link>
         </Button>
       </div>
 

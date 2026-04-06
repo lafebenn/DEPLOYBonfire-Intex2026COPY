@@ -1,6 +1,8 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { BarChart3, Download, FileText } from "lucide-react";
+import { Link } from "react-router-dom";
+import { localData } from "@/lib/localData";
 
 const reports = [
   { title: "Monthly Caseload Summary", description: "Active cases, intakes, discharges, and program utilization", lastRun: "April 1, 2026" },
@@ -11,11 +13,19 @@ const reports = [
 ];
 
 export default function ReportsPage() {
+  const reportRuns = localData.listReportRuns();
+
   return (
     <div className="space-y-6">
       <div>
         <h2 className="font-heading text-2xl font-bold">Reports & Analytics</h2>
         <p className="text-muted-foreground text-sm mt-1">Generate and download organizational reports</p>
+      </div>
+
+      <div className="flex items-center justify-end">
+        <Button asChild>
+          <Link to="/app/reports/generate">Generate report</Link>
+        </Button>
       </div>
 
       <div className="grid gap-4">
@@ -42,6 +52,40 @@ export default function ReportsPage() {
           </Card>
         ))}
       </div>
+
+      {reportRuns.length > 0 && (
+        <Card className="card-warm">
+          <CardHeader>
+            <CardTitle>Recent generated reports</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {reportRuns.slice(0, 5).map((run) => (
+                <div
+                  key={run.id}
+                  className="flex items-start justify-between gap-4 p-4 rounded-xl border border-border bg-card"
+                >
+                  <div className="min-w-0">
+                    <p className="font-medium">{run.templateTitle}</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Generated {new Date(run.generatedAt).toLocaleString()}
+                    </p>
+                    {run.notes && (
+                      <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
+                        {run.notes}
+                      </p>
+                    )}
+                  </div>
+                  <Button variant="outline" size="sm" disabled>
+                    <Download className="h-4 w-4 mr-1" />
+                    Export
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

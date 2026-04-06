@@ -2,6 +2,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Home, MapPin } from "lucide-react";
+import { Link } from "react-router-dom";
+import { localData } from "@/lib/localData";
 
 const visits = [
   { id: 1, resident: "Aisha T.", address: "1234 Elm St, Suite 5", date: "2026-04-08", time: "10:00 AM", status: "Scheduled", worker: "James Rivera" },
@@ -13,6 +15,9 @@ const visits = [
 const statusColors: Record<string, "default" | "success"> = { Scheduled: "default", Completed: "success" };
 
 export default function HomeVisitsPage() {
+  const stored = localData.listVisits();
+  const allVisits = [...stored, ...visits];
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -20,11 +25,15 @@ export default function HomeVisitsPage() {
           <h2 className="font-heading text-2xl font-bold">Home Visitations</h2>
           <p className="text-muted-foreground text-sm mt-1">Schedule and track home visits</p>
         </div>
-        <Button><Plus className="h-4 w-4 mr-2" /> Schedule Visit</Button>
+        <Button asChild>
+          <Link to="/app/visits/new">
+            <Plus className="h-4 w-4 mr-2" /> Schedule Visit
+          </Link>
+        </Button>
       </div>
 
       <div className="grid gap-4">
-        {visits.map((v) => (
+        {allVisits.map((v) => (
           <Card key={v.id} className="hover:shadow-warm-lg transition-shadow cursor-pointer">
             <CardContent className="p-5">
               <div className="flex items-center justify-between">

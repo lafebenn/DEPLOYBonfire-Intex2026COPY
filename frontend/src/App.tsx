@@ -21,6 +21,12 @@ import HomeVisitsPage from "@/pages/app/HomeVisitsPage";
 import CaseConferencesPage from "@/pages/app/CaseConferencesPage";
 import DonorsPage from "@/pages/app/DonorsPage";
 import ReportsPage from "@/pages/app/ReportsPage";
+import NewIntakePage from "@/pages/app/NewIntakePage";
+import NewVisitPage from "@/pages/app/NewVisitPage";
+import NewDonationPage from "@/pages/app/NewDonationPage";
+import NewConferencePage from "@/pages/app/NewConferencePage";
+import NewProcessRecordingPage from "@/pages/app/NewProcessRecordingPage";
+import GenerateReportPage from "@/pages/app/GenerateReportPage";
 
 import NotFound from "@/pages/NotFound";
 
@@ -54,6 +60,12 @@ const App = () => (
               <Route path="case-conferences" element={<CaseConferencesPage />} />
               <Route path="donors" element={<DonorsPage />} />
               <Route path="reports" element={<ReportsPage />} />
+              <Route path="intake/new" element={<NewIntakePage />} />
+              <Route path="visits/new" element={<NewVisitPage />} />
+              <Route path="donations/new" element={<NewDonationPage />} />
+              <Route path="conferences/new" element={<NewConferencePage />} />
+              <Route path="recordings/new" element={<NewProcessRecordingPage />} />
+              <Route path="reports/generate" element={<GenerateReportPage />} />
             </Route>
 
             <Route path="*" element={<NotFound />} />

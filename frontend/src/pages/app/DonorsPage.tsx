@@ -4,6 +4,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search, Plus, Heart, DollarSign } from "lucide-react";
 import { useState } from "react";
+import { Link } from "react-router-dom";
+import { localData } from "@/lib/localData";
 
 const donors = [
   { id: 1, name: "Sarah Kingsley", type: "Monthly", amount: "$500/mo", total: "$6,000", allocation: "Direct Services", since: "2022" },
@@ -22,7 +24,18 @@ const typeColors: Record<string, "default" | "secondary" | "outline" | "warning"
 
 export default function DonorsPage() {
   const [search, setSearch] = useState("");
-  const filtered = donors.filter((d) => d.name.toLowerCase().includes(search.toLowerCase()));
+  const stored = localData.listDonations();
+  const storedAsDonors = stored.map((d, idx) => ({
+    id: `local_${idx}`,
+    name: d.donorName,
+    type: d.donationType,
+    amount: d.amount,
+    total: d.amount,
+    allocation: d.allocation,
+    since: new Date(d.date).getFullYear().toString(),
+  }));
+  const allDonors = [...storedAsDonors, ...donors];
+  const filtered = allDonors.filter((d) => d.name.toLowerCase().includes(search.toLowerCase()));
 
   return (
     <div className="space-y-6">
@@ -31,7 +44,11 @@ export default function DonorsPage() {
           <h2 className="font-heading text-2xl font-bold">Donors & Contributions</h2>
           <p className="text-muted-foreground text-sm mt-1">Manage supporters and track donations</p>
         </div>
-        <Button><Plus className="h-4 w-4 mr-2" /> Add Donor</Button>
+        <Button asChild>
+          <Link to="/app/donations/new">
+            <Plus className="h-4 w-4 mr-2" /> Add Donation
+          </Link>
+        </Button>
       </div>
 
       <div className="grid sm:grid-cols-3 gap-4">
@@ -41,8 +58,8 @@ export default function DonorsPage() {
               <Heart className="h-5 w-5 text-primary" />
             </div>
             <div>
-              <p className="text-2xl font-heading font-bold">1,834</p>
-              <p className="text-sm text-muted-foreground">Total Donors</p>
+              <p className="text-2xl font-heading font-bold">{allDonors.length}</p>
+              <p className="text-sm text-muted-foreground">Supporters in this demo</p>
             </div>
           </CardContent>
         </Card>

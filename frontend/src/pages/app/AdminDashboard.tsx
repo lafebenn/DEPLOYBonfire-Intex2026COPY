@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
 import { Users, Heart, Calendar, TrendingUp, FileText, Clock } from "lucide-react";
+import { Link } from "react-router-dom";
 
 const stats = [
   { label: "Active Residents", value: "42", icon: Users, trend: "+3 this month" },
@@ -78,20 +79,21 @@ export default function AdminDashboard() {
           <CardContent>
             <div className="grid grid-cols-2 gap-3">
               {[
-                { label: "New Intake", badge: "Case" },
-                { label: "Record Visit", badge: "Visit" },
-                { label: "Add Donation", badge: "Donor" },
-                { label: "Schedule Conference", badge: "Meeting" },
-                { label: "Process Recording", badge: "Record" },
-                { label: "Generate Report", badge: "Report" },
+                { label: "New Intake", badge: "Case", to: "/app/intake/new" },
+                { label: "Record Visit", badge: "Visit", to: "/app/visits/new" },
+                { label: "Add Donation", badge: "Donor", to: "/app/donations/new" },
+                { label: "Schedule Conference", badge: "Meeting", to: "/app/conferences/new" },
+                { label: "Process Recording", badge: "Record", to: "/app/recordings/new" },
+                { label: "Generate Report", badge: "Report", to: "/app/reports/generate" },
               ].map((action) => (
-                <button
+                <Link
                   key={action.label}
+                  to={action.to}
                   className="flex items-center justify-between p-3 rounded-xl border border-border hover:bg-accent transition-colors text-left"
                 >
                   <span className="text-sm font-medium">{action.label}</span>
                   <Badge variant="outline" className="text-xs">{action.badge}</Badge>
-                </button>
+                </Link>
               ))}
             </div>
           </CardContent>

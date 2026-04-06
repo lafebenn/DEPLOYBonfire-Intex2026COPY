@@ -2,6 +2,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Calendar, Users } from "lucide-react";
+import { Link } from "react-router-dom";
+import { localData } from "@/lib/localData";
 
 const conferences = [
   { id: 1, title: "Quarterly Review — Residential Program", date: "2026-04-10", time: "2:00 PM", attendees: 5, status: "Upcoming", cases: ["Jane D.", "Aisha T.", "Lin W."] },
@@ -13,6 +15,9 @@ const conferences = [
 const statusColors: Record<string, "default" | "success"> = { Upcoming: "default", Completed: "success" };
 
 export default function CaseConferencesPage() {
+  const stored = localData.listConferences();
+  const allConferences = [...stored, ...conferences];
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -20,11 +25,15 @@ export default function CaseConferencesPage() {
           <h2 className="font-heading text-2xl font-bold">Case Conferences</h2>
           <p className="text-muted-foreground text-sm mt-1">Collaborative care planning meetings</p>
         </div>
-        <Button><Plus className="h-4 w-4 mr-2" /> Schedule Conference</Button>
+        <Button asChild>
+          <Link to="/app/conferences/new">
+            <Plus className="h-4 w-4 mr-2" /> Schedule Conference
+          </Link>
+        </Button>
       </div>
 
       <div className="grid gap-4">
-        {conferences.map((c) => (
+        {allConferences.map((c) => (
           <Card key={c.id} className="hover:shadow-warm-lg transition-shadow cursor-pointer">
             <CardContent className="p-5">
               <div className="flex items-start justify-between gap-4">

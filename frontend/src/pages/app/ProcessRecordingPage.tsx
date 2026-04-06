@@ -2,6 +2,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Plus, FileText } from "lucide-react";
+import { Link } from "react-router-dom";
+import { localData } from "@/lib/localData";
 
 const recordings = [
   { id: 1, resident: "Jane D.", date: "2026-04-05", type: "Session Note", author: "James Rivera", summary: "Discussed employment goals and reviewed progress on GED preparation." },
@@ -11,6 +13,9 @@ const recordings = [
 ];
 
 export default function ProcessRecordingPage() {
+  const stored = localData.listRecordings();
+  const allRecordings = [...stored, ...recordings];
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -18,11 +23,15 @@ export default function ProcessRecordingPage() {
           <h2 className="font-heading text-2xl font-bold">Process Recording</h2>
           <p className="text-muted-foreground text-sm mt-1">Chronological session notes and assessments</p>
         </div>
-        <Button><Plus className="h-4 w-4 mr-2" /> New Recording</Button>
+        <Button asChild>
+          <Link to="/app/recordings/new">
+            <Plus className="h-4 w-4 mr-2" /> New Recording
+          </Link>
+        </Button>
       </div>
 
       <div className="space-y-4">
-        {recordings.map((r) => (
+        {allRecordings.map((r) => (
           <Card key={r.id} className="hover:shadow-warm-lg transition-shadow cursor-pointer">
             <CardContent className="p-5">
               <div className="flex items-start justify-between gap-4">
