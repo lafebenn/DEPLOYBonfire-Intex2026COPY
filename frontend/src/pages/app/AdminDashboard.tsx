@@ -85,6 +85,7 @@ export default function AdminDashboard() {
                 { label: "Schedule Conference", badge: "Meeting", to: "/app/conferences/new" },
                 { label: "Process Recording", badge: "Record", to: "/app/recordings/new" },
                 { label: "Generate Report", badge: "Report", to: "/app/reports/generate" },
+                { label: "Social insights", badge: "Outreach", to: "/app/social" },
               ].map((action) => (
                 <Link
                   key={action.label}

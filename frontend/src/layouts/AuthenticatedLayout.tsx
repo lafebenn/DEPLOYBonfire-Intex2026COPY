@@ -10,6 +10,7 @@ import {
   Home,
   Calendar,
   BarChart3,
+  Share2,
   LogOut,
   Menu,
 } from "lucide-react";
@@ -24,6 +25,7 @@ const navItems = [
   { title: "Case Conferences", url: "/app/case-conferences", icon: Calendar, roles: ["admin", "staff"] },
   { title: "Donors", url: "/app/donors", icon: Heart, roles: ["admin", "fundraising_director"] },
   { title: "Reports", url: "/app/reports", icon: BarChart3, roles: ["admin", "fundraising_director"] },
+  { title: "Social insights", url: "/app/social", icon: Share2, roles: ["admin", "staff", "fundraising_director"] },
 ];
 
 export default function AuthenticatedLayout() {

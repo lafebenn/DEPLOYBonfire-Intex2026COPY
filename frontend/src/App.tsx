@@ -29,6 +29,7 @@ import NewDonationPage from "@/pages/app/NewDonationPage";
 import NewConferencePage from "@/pages/app/NewConferencePage";
 import NewProcessRecordingPage from "@/pages/app/NewProcessRecordingPage";
 import GenerateReportPage from "@/pages/app/GenerateReportPage";
+import SocialMediaInsightsPage from "@/pages/app/SocialMediaInsightsPage";
 
 import NotFound from "@/pages/NotFound";
 
@@ -70,6 +71,7 @@ const App = () => (
               <Route path="conferences/new" element={<NewConferencePage />} />
               <Route path="recordings/new" element={<NewProcessRecordingPage />} />
               <Route path="reports/generate" element={<GenerateReportPage />} />
+              <Route path="social" element={<SocialMediaInsightsPage />} />
             </Route>
 
             <Route path="*" element={<NotFound />} />
