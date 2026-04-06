@@ -1,9 +1,10 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Route, Routes, Link } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 
 import PublicLayout from "@/layouts/PublicLayout";
 import AuthenticatedLayout from "@/layouts/AuthenticatedLayout";
@@ -35,6 +36,20 @@ import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
 
+function UnauthorizedPage() {
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center gap-3 bg-background px-4">
+      <h1 className="font-heading text-xl font-semibold text-foreground">Access denied</h1>
+      <p className="text-muted-foreground text-sm text-center max-w-md">
+        You do not have permission to view this page.
+      </p>
+      <Link to="/" className="text-sm text-primary hover:underline">
+        Return home
+      </Link>
+    </div>
+  );
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
@@ -47,16 +62,30 @@ const App = () => (
             <Route element={<PublicLayout />}>
               <Route path="/" element={<LandingPage />} />
               <Route path="/impact" element={<ImpactPage />} />
-              <Route path="/donate" element={<DonatePage />} />
+              <Route
+                path="/donate"
+                element={
+                  <ProtectedRoute roles={["donor", "admin"]}>
+                    <DonatePage />
+                  </ProtectedRoute>
+                }
+              />
               <Route path="/privacy" element={<PrivacyPage />} />
               <Route path="/cookies" element={<CookiesPage />} />
             </Route>
 
-            {/* Login (standalone layout) */}
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/unauthorized" element={<UnauthorizedPage />} />
 
-            {/* Authenticated routes */}
-            <Route path="/app" element={<AuthenticatedLayout />}>
+            {/* Staff / admin app */}
+            <Route
+              path="/app"
+              element={
+                <ProtectedRoute roles={["admin", "staff"]}>
+                  <AuthenticatedLayout />
+                </ProtectedRoute>
+              }
+            >
               <Route index element={<AdminDashboard />} />
               <Route path="caseload" element={<CaseloadPage />} />
               <Route path="caseload/:residentId" element={<ResidentDetailPage />} />

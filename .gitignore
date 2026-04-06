@@ -1,0 +1,8 @@
+**/appsettings.Development.json
+*.sqlite
+.env.development
+.env.production
+**/bin/
+**/obj/
+.vs/
+.DS_Store
