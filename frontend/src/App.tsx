@@ -17,6 +17,7 @@ import CookiesPage from "@/pages/CookiesPage";
 
 import AdminDashboard from "@/pages/app/AdminDashboard";
 import CaseloadPage from "@/pages/app/CaseloadPage";
+import ResidentDetailPage from "@/pages/app/ResidentDetailPage";
 import ProcessRecordingPage from "@/pages/app/ProcessRecordingPage";
 import HomeVisitsPage from "@/pages/app/HomeVisitsPage";
 import CaseConferencesPage from "@/pages/app/CaseConferencesPage";
@@ -57,6 +58,7 @@ const App = () => (
             <Route path="/app" element={<AuthenticatedLayout />}>
               <Route index element={<AdminDashboard />} />
               <Route path="caseload" element={<CaseloadPage />} />
+              <Route path="caseload/:residentId" element={<ResidentDetailPage />} />
               <Route path="process-recording" element={<ProcessRecordingPage />} />
               <Route path="home-visits" element={<HomeVisitsPage />} />
               <Route path="case-conferences" element={<CaseConferencesPage />} />

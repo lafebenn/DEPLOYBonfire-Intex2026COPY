@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Users, Heart, TrendingUp, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
+import textileBg from "@/assets/textile_bg.png";
 
 const metrics = [
   { label: "Survivors Served", value: "247", change: "+18 this year", icon: Users },
@@ -28,21 +29,29 @@ export default function ImpactPage() {
           </div>
         </div>
 
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
-          {metrics.map((m) => (
-            <Card key={m.label}>
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-sm font-medium text-muted-foreground font-body">{m.label}</CardTitle>
-                  <m.icon className="h-5 w-5 text-primary" />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <p className="text-3xl font-heading font-bold">{m.value}</p>
-                <p className="text-sm text-muted-foreground mt-1">{m.change}</p>
-              </CardContent>
-            </Card>
-          ))}
+        <div className="relative overflow-hidden rounded-3xl border border-border bg-card/50 p-6 md:p-8 mb-16">
+          <div
+            className="absolute inset-0 bg-repeat opacity-35"
+            style={{ backgroundImage: `url(${textileBg})`, backgroundSize: "520px" }}
+            aria-hidden="true"
+          />
+          <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-secondary/5" aria-hidden="true" />
+          <div className="relative grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {metrics.map((m) => (
+              <Card key={m.label}>
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-sm font-medium text-muted-foreground font-body">{m.label}</CardTitle>
+                    <m.icon className="h-5 w-5 text-primary" />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-3xl font-heading font-bold">{m.value}</p>
+                  <p className="text-sm text-muted-foreground mt-1">{m.change}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         </div>
 
         <div className="grid md:grid-cols-2 gap-8">

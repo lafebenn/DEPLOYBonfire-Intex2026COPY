@@ -5,16 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Search, Plus, Filter } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { localData } from "@/lib/localData";
-
-const residents = [
-  { id: "R-2024-089", name: "Jane D.", status: "Active", program: "Residential", progress: 75, admitted: "2024-01-15" },
-  { id: "R-2024-075", name: "Maria S.", status: "Active", program: "Outpatient", progress: 60, admitted: "2024-02-20" },
-  { id: "R-2024-062", name: "Aisha T.", status: "Active", program: "Residential", progress: 90, admitted: "2023-11-08" },
-  { id: "R-2024-051", name: "Emily R.", status: "Transitioning", program: "Aftercare", progress: 95, admitted: "2023-09-01" },
-  { id: "R-2024-045", name: "Lin W.", status: "Active", program: "Residential", progress: 40, admitted: "2024-03-10" },
-  { id: "R-2024-030", name: "Sofia M.", status: "Completed", program: "Aftercare", progress: 100, admitted: "2023-06-15" },
-];
+import { listResidentsForCaseload } from "@/lib/residentData";
 
 const statusColors: Record<string, "default" | "success" | "warning" | "outline"> = {
   Active: "default",
@@ -24,8 +15,7 @@ const statusColors: Record<string, "default" | "success" | "warning" | "outline"
 
 export default function CaseloadPage() {
   const [search, setSearch] = useState("");
-  const stored = localData.listIntakes();
-  const allResidents = [...stored, ...residents];
+  const allResidents = listResidentsForCaseload();
   const filtered = allResidents.filter(
     (r) => r.name.toLowerCase().includes(search.toLowerCase()) || r.id.toLowerCase().includes(search.toLowerCase())
   );
@@ -54,29 +44,34 @@ export default function CaseloadPage() {
 
       <div className="grid gap-4">
         {filtered.map((r) => (
-          <Card key={r.id} className="hover:shadow-warm-lg transition-shadow cursor-pointer">
-            <CardContent className="p-5">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                    <span className="text-primary font-heading font-bold text-sm">{r.name[0]}</span>
-                  </div>
-                  <div>
-                    <p className="font-medium">{r.name}</p>
-                    <p className="text-sm text-muted-foreground">{r.id} · {r.program}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-4">
-                  <div className="text-right hidden sm:block">
-                    <p className="text-sm font-medium">{r.progress}%</p>
-                    <div className="w-20 h-1.5 bg-muted rounded-full mt-1">
-                      <div className="h-full bg-primary rounded-full" style={{ width: `${r.progress}%` }} />
+          <Card key={r.id} className="hover:shadow-warm-lg transition-shadow overflow-hidden">
+            <Link
+              to={`/app/caseload/${encodeURIComponent(r.id)}`}
+              className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-xl"
+            >
+              <CardContent className="p-5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                      <span className="text-primary font-heading font-bold text-sm">{r.name[0]}</span>
+                    </div>
+                    <div>
+                      <p className="font-medium">{r.name}</p>
+                      <p className="text-sm text-muted-foreground">{r.id} · {r.program}</p>
                     </div>
                   </div>
-                  <Badge variant={statusColors[r.status] || "outline"}>{r.status}</Badge>
+                  <div className="flex items-center gap-4">
+                    <div className="text-right hidden sm:block">
+                      <p className="text-sm font-medium">{r.progress}%</p>
+                      <div className="w-20 h-1.5 bg-muted rounded-full mt-1">
+                        <div className="h-full bg-primary rounded-full" style={{ width: `${r.progress}%` }} />
+                      </div>
+                    </div>
+                    <Badge variant={statusColors[r.status] || "outline"}>{r.status}</Badge>
+                  </div>
                 </div>
-              </div>
-            </CardContent>
+              </CardContent>
+            </Link>
           </Card>
         ))}
       </div>

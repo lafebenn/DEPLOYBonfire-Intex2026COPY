@@ -3,6 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Heart, Shield, Users, ArrowRight, Flame } from "lucide-react";
 import { Link } from "react-router-dom";
 import bonfireImage from "@/assets/bonfire-image.png";
+import textileBg from "@/assets/textile_bg.png";
 
 export default function LandingPage() {
   return (
@@ -80,7 +81,14 @@ export default function LandingPage() {
       {/* CTA */}
       <section className="py-20">
         <div className="section-container">
-          <div className="bg-gradient-to-br from-primary/10 to-secondary/10 rounded-3xl p-10 md:p-16 text-center">
+          <div className="relative overflow-hidden rounded-3xl p-10 md:p-16 text-center">
+            <div
+              className="absolute inset-0 bg-repeat opacity-45"
+              style={{ backgroundImage: `url(${textileBg})`, backgroundSize: "520px" }}
+              aria-hidden="true"
+            />
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-secondary/10" aria-hidden="true" />
+            <div className="relative">
             <h2 className="font-heading text-3xl font-bold mb-4">Join the movement</h2>
             <p className="text-muted-foreground mb-8 max-w-md mx-auto">
               Whether through donation, volunteering, or partnership — your support ignites hope.
@@ -90,6 +98,7 @@ export default function LandingPage() {
                 <Link to="/donate">Donate Now</Link>
               </Button>
               <Button variant="outline" size="lg">Get In Touch</Button>
+            </div>
             </div>
           </div>
         </div>
