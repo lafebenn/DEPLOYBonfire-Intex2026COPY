@@ -86,7 +86,9 @@ export default function LandingPage() {
               Whether through donation, volunteering, or partnership — your support ignites hope.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <Button variant="hero" size="lg">Donate Now</Button>
+              <Button variant="hero" size="lg" asChild>
+                <Link to="/donate">Donate Now</Link>
+              </Button>
               <Button variant="outline" size="lg">Get In Touch</Button>
             </div>
           </div>

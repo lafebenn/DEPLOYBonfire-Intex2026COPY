@@ -12,6 +12,7 @@ export default function PublicLayout() {
           <nav className="hidden md:flex items-center gap-6">
             <Link to="/" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Home</Link>
             <Link to="/impact" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Impact</Link>
+            <Link to="/donate" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Donate</Link>
             <Link to="/privacy" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Privacy</Link>
           </nav>
           <Button asChild size="sm">
@@ -32,6 +33,7 @@ export default function PublicLayout() {
               <Link to="/privacy" className="hover:text-foreground transition-colors">Privacy Policy</Link>
               <Link to="/cookies" className="hover:text-foreground transition-colors">Cookie Policy</Link>
               <Link to="/impact" className="hover:text-foreground transition-colors">Our Impact</Link>
+              <Link to="/donate" className="hover:text-foreground transition-colors">Donate</Link>
             </nav>
             <p className="text-sm text-muted-foreground">© 2026 Bonfire. All rights reserved.</p>
           </div>

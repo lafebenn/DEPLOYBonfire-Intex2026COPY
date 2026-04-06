@@ -1,6 +1,8 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Users, Heart, TrendingUp, Shield } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Link } from "react-router-dom";
 
 const metrics = [
   { label: "Survivors Served", value: "247", change: "+18 this year", icon: Users },
@@ -19,6 +21,11 @@ export default function ImpactPage() {
           <p className="text-muted-foreground max-w-lg mx-auto text-lg">
             Anonymized, aggregated data showing the collective impact of our community.
           </p>
+          <div className="mt-8 flex items-center justify-center">
+            <Button variant="hero" size="lg" asChild>
+              <Link to="/donate">Donate now</Link>
+            </Button>
+          </div>
         </div>
 
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">

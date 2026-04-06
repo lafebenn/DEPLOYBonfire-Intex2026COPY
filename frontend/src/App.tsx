@@ -10,6 +10,7 @@ import AuthenticatedLayout from "@/layouts/AuthenticatedLayout";
 
 import LandingPage from "@/pages/LandingPage";
 import ImpactPage from "@/pages/ImpactPage";
+import DonatePage from "@/pages/DonatePage";
 import LoginPage from "@/pages/LoginPage";
 import PrivacyPage from "@/pages/PrivacyPage";
 import CookiesPage from "@/pages/CookiesPage";
@@ -44,6 +45,7 @@ const App = () => (
             <Route element={<PublicLayout />}>
               <Route path="/" element={<LandingPage />} />
               <Route path="/impact" element={<ImpactPage />} />
+              <Route path="/donate" element={<DonatePage />} />
               <Route path="/privacy" element={<PrivacyPage />} />
               <Route path="/cookies" element={<CookiesPage />} />
             </Route>
