@@ -6,25 +6,54 @@ import { Link } from "react-router-dom";
 import textileBg from "@/assets/textile_bg.png";
 
 const metrics = [
-  { label: "Survivors Served", value: "247", change: "+18 this year", icon: Users },
-  { label: "Active Cases", value: "42", change: "Across 3 programs", icon: Shield },
-  { label: "Donor Supporters", value: "1,834", change: "+312 this year", icon: Heart },
-  { label: "Program Completion", value: "89%", change: "+5% from last year", icon: TrendingUp },
+  {
+    label: "Survivors who've walked with us",
+    value: "247",
+    change: "Each number is a person—names and stories stay private here.",
+    icon: Users,
+  },
+  {
+    label: "Young people in care today",
+    value: "42",
+    change: "In safe housing and counseling—not “file numbers,” but neighbors rebuilding.",
+    icon: Shield,
+  },
+  {
+    label: "Neighbors who give & volunteer",
+    value: "1,834",
+    change: "Families, congregations, and partners standing with survivors.",
+    icon: Heart,
+  },
+  {
+    label: "Young people finishing key milestones",
+    value: "89%",
+    change: "Core program goals met—education, stability, and steps toward home.",
+    icon: TrendingUp,
+  },
 ];
 
 export default function ImpactPage() {
   return (
     <div className="py-16">
       <div className="section-container">
-        <div className="text-center mb-16">
-          <Badge variant="default" className="mb-4">Impact Report 2026</Badge>
-          <h1 className="font-heading text-4xl md:text-5xl font-bold mb-4">Making a difference</h1>
-          <p className="text-muted-foreground max-w-lg mx-auto text-lg">
-            Anonymized, aggregated data showing the collective impact of our community.
+        <div className="text-center mb-10">
+          <Badge variant="default" className="mb-4">
+            Impact
+          </Badge>
+          <h1 className="font-heading text-4xl md:text-5xl font-bold mb-4">
+            Real people. Real shelter. Real next steps.
+          </h1>
+          <p className="text-muted-foreground max-w-2xl mx-auto text-lg leading-relaxed">
+            What you see here is <strong className="text-foreground font-medium">anonymized and added up on purpose</strong> so we
+            can celebrate progress without exposing anyone’s identity. Behind every statistic is someone who deserves safety,
+            counseling, and belonging—work our staff and partners show up for every day.
+          </p>
+          <p className="text-sm text-muted-foreground max-w-xl mx-auto mt-4 italic border-l-2 border-primary/40 pl-4 text-left md:text-center md:border-l-0 md:pl-0 md:border-t md:pt-4 md:border-primary/40">
+            We share aggregates the way a responsible nonprofit should—honest about scale, careful with individual dignity.
           </p>
           <div className="mt-8 flex items-center justify-center">
             <Button variant="hero" size="lg" asChild>
-              <Link to="/donate">Donate now</Link>
+              <Link to="/donate">Stand with survivors</Link>
             </Button>
           </div>
         </div>
@@ -56,7 +85,10 @@ export default function ImpactPage() {
 
         <div className="grid md:grid-cols-2 gap-8">
           <Card className="p-8">
-            <h3 className="font-heading text-xl font-semibold mb-4">Program Outcomes</h3>
+            <h3 className="font-heading text-xl font-semibold mb-1">Where young people are gaining ground</h3>
+            <p className="text-sm text-muted-foreground mb-4 leading-relaxed">
+              Roll-ups from program teams—percentages reflect how many of those we served this period moved forward on these goals (not cold “case” tallies).
+            </p>
             <div className="space-y-4">
               {[
                 { label: "Safe housing placement", pct: 94 },
@@ -77,7 +109,10 @@ export default function ImpactPage() {
             </div>
           </Card>
           <Card className="p-8">
-            <h3 className="font-heading text-xl font-semibold mb-4">Donation Allocation</h3>
+            <h3 className="font-heading text-xl font-semibold mb-1">How your gifts reach people</h3>
+            <p className="text-sm text-muted-foreground mb-4 leading-relaxed">
+              Honoring what donors intend: most support flows straight to services that touch a young person’s day-to-day safety and healing.
+            </p>
             <div className="space-y-4">
               {[
                 { label: "Direct survivor services", pct: 65, color: "bg-primary" },

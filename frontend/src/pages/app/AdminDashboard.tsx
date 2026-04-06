@@ -25,8 +25,13 @@ export default function AdminDashboard() {
   return (
     <div className="space-y-8">
       <div>
-        <h2 className="font-heading text-2xl font-bold">Welcome back, {user?.name?.split(" ")[0]}</h2>
-        <p className="text-muted-foreground mt-1">Here's what's happening at Bonfire today.</p>
+        <h2 className="font-heading text-2xl font-bold">Bonfire · Program operations</h2>
+        <p className="text-muted-foreground mt-1 text-sm leading-relaxed">
+          Authorized staff workspace. Signed in as{" "}
+          <span className="text-foreground font-medium">{user?.name}</span>
+          <span className="capitalize"> · {user?.role?.replace(/_/g, " ")}</span>
+          . Figures below roll up from internal program reporting—handle with care.
+        </p>
       </div>
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
