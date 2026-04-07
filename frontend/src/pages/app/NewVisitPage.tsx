@@ -1,18 +1,29 @@
-import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { localData } from "@/lib/localData";
+import { residentsApi } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 
 const statuses = ["Scheduled", "Completed"] as const;
 
+async function resolveResidentId(raw: string): Promise<number> {
+  const t = raw.trim();
+  if (/^\d+$/.test(t)) return Number(t);
+  const res = await residentsApi.list({ search: t });
+  if (!res.success) throw new Error(res.message || "Lookup failed");
+  const rows = res.data as { residentId: number }[];
+  if (rows.length !== 1) throw new Error("Enter a resident ID or a name that matches exactly one case.");
+  return rows[0].residentId;
+}
+
 export default function NewVisitPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -24,6 +35,13 @@ export default function NewVisitPage() {
   const [time, setTime] = useState("10:00 AM");
   const [status, setStatus] = useState<(typeof statuses)[number]>("Scheduled");
   const [worker, setWorker] = useState(user?.name ?? "Staff Member");
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    const rid = searchParams.get("residentId");
+    if (rid) setResident(rid);
+  }, [searchParams]);
 
   const canSubmit =
     resident.trim().length > 0 &&
@@ -41,6 +59,8 @@ export default function NewVisitPage() {
         </p>
       </div>
 
+      {submitError && <div className="text-sm text-destructive">{submitError}</div>}
+
       <Card className="card-warm">
         <CardHeader>
           <CardTitle>Visit details</CardTitle>
@@ -51,7 +71,7 @@ export default function NewVisitPage() {
               <Label htmlFor="resident">Resident</Label>
               <Input
                 id="resident"
-                placeholder="Aisha T."
+                placeholder="Aisha T. or resident ID"
                 value={resident}
                 onChange={(e) => setResident(e.target.value)}
                 autoComplete="off"
@@ -91,7 +111,7 @@ export default function NewVisitPage() {
             </div>
             <div className="space-y-2">
               <Label>Status</Label>
-              <Select value={status} onValueChange={(v) => setStatus(v as typeof status)}>
+              <Select value={status} onValueChange={(v) => setStatus(v as (typeof statuses)[number])}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -111,21 +131,37 @@ export default function NewVisitPage() {
               Cancel
             </Button>
             <Button
-              disabled={!canSubmit}
+              disabled={!canSubmit || submitting}
               onClick={() => {
-                localData.addVisit({
-                  resident: resident.trim(),
-                  address: address.trim(),
-                  date,
-                  time: time.trim(),
-                  status,
-                  worker: worker.trim(),
-                });
-                toast({
-                  title: "Visit saved",
-                  description: `Visit for ${resident.trim()} on ${date} added.`,
-                });
-                navigate("/app/home-visits");
+                setSubmitError(null);
+                setSubmitting(true);
+                resolveResidentId(resident)
+                  .then((residentId) =>
+                    residentsApi.addHomeVisitation(residentId, {
+                      visitDate: date,
+                      socialWorker: worker.trim(),
+                      visitType: "Home",
+                      locationVisited: address.trim(),
+                      familyMembersPresent: "",
+                      purpose: "",
+                      observations: `Scheduled time: ${time.trim()}`,
+                      familyCooperationLevel: "",
+                      safetyConcernsNoted: false,
+                      followUpNeeded: false,
+                      followUpNotes: null,
+                      visitOutcome: status,
+                    })
+                  )
+                  .then((res) => {
+                    if (!res.success) throw new Error(res.message || "Failed to save visit");
+                    toast({
+                      title: "Visit saved",
+                      description: `Visit on ${date} added.`,
+                    });
+                    navigate(-1);
+                  })
+                  .catch((err: Error) => setSubmitError(err.message ?? "Failed to save"))
+                  .finally(() => setSubmitting(false));
               }}
             >
               Save visit
@@ -136,4 +172,3 @@ export default function NewVisitPage() {
     </div>
   );
 }
-

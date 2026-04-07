@@ -1,24 +1,55 @@
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search, Plus, Heart, DollarSign } from "lucide-react";
-import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { listSupporterTableRows } from "@/lib/supporterData";
+import { donorsApi } from "@/lib/api";
+
+type SupporterRow = {
+  supporterId: number;
+  displayName: string;
+  supporterType: string;
+  status: string;
+  country: string;
+  firstDonationDate: string | null;
+  acquisitionChannel: string;
+};
 
 const typeColors: Record<string, "default" | "secondary" | "outline" | "warning"> = {
   Monthly: "default",
   "One-time": "secondary",
   Grant: "warning",
   Annual: "outline",
+  MonetaryDonor: "default",
+  InKindDonor: "secondary",
+  Volunteer: "outline",
 };
 
 export default function DonorsPage() {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
-  const allDonors = listSupporterTableRows();
-  const filtered = allDonors.filter((d) => d.name.toLowerCase().includes(search.toLowerCase()));
+  const [allDonors, setAllDonors] = useState<SupporterRow[] | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    donorsApi
+      .supportersList()
+      .then((res) => {
+        if (!res.success) throw new Error(res.message || "Failed to load supporters");
+        setAllDonors(res.data as SupporterRow[]);
+      })
+      .catch((err: Error) => setError(err.message ?? "Failed to load"))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return <div className="p-8 text-muted-foreground">Loading...</div>;
+  if (error) return <div className="p-8 text-destructive">{error}</div>;
+  if (!allDonors) return <div className="p-8 text-muted-foreground">No data</div>;
+
+  const filtered = allDonors.filter((d) => d.displayName.toLowerCase().includes(search.toLowerCase()));
 
   return (
     <div className="space-y-6">
@@ -26,7 +57,7 @@ export default function DonorsPage() {
         <div>
           <h2 className="font-heading text-2xl font-bold">Supporter profiles & contributions</h2>
           <p className="text-muted-foreground text-sm mt-1">
-            Open a row to see full gift history (demo data + gifts recorded on this device).
+            Open a row to see full gift history from the operational database.
           </p>
         </div>
         <Button asChild>
@@ -54,7 +85,7 @@ export default function DonorsPage() {
               <DollarSign className="h-5 w-5 text-success" />
             </div>
             <div>
-              <p className="text-2xl font-heading font-bold">$248,500</p>
+              <p className="text-2xl font-heading font-bold">—</p>
               <p className="text-sm text-muted-foreground">This Year</p>
             </div>
           </CardContent>
@@ -65,7 +96,7 @@ export default function DonorsPage() {
               <DollarSign className="h-5 w-5 text-warning" />
             </div>
             <div>
-              <p className="text-2xl font-heading font-bold">$42/mo</p>
+              <p className="text-2xl font-heading font-bold">—</p>
               <p className="text-sm text-muted-foreground">Avg. Monthly</p>
             </div>
           </CardContent>
@@ -97,27 +128,27 @@ export default function DonorsPage() {
             <tbody>
               {filtered.map((d, i) => (
                 <tr
-                  key={d.profileId}
+                  key={d.supporterId}
                   className={`border-b border-border last:border-0 hover:bg-accent/50 transition-colors cursor-pointer ${i % 2 === 0 ? "bg-card" : "bg-muted/30"}`}
-                  onClick={() => navigate(`/app/donors/${encodeURIComponent(d.profileId)}`)}
+                  onClick={() => navigate(`/app/donors/${d.supporterId}`)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" || e.key === " ") {
                       e.preventDefault();
-                      navigate(`/app/donors/${encodeURIComponent(d.profileId)}`);
+                      navigate(`/app/donors/${d.supporterId}`);
                     }
                   }}
                   tabIndex={0}
                   role="link"
-                  aria-label={`Open supporter profile for ${d.name}`}
+                  aria-label={`Open supporter profile for ${d.displayName}`}
                 >
-                  <td className="p-4 font-medium">{d.name}</td>
+                  <td className="p-4 font-medium">{d.displayName}</td>
                   <td className="p-4">
-                    <Badge variant={typeColors[d.type] ?? "outline"}>{d.type}</Badge>
+                    <Badge variant={typeColors[d.supporterType] ?? "outline"}>{d.supporterType}</Badge>
                   </td>
-                  <td className="p-4 text-sm">{d.amount}</td>
-                  <td className="p-4 text-sm hidden md:table-cell">{d.total}</td>
-                  <td className="p-4 text-sm text-muted-foreground hidden lg:table-cell">{d.allocation}</td>
-                  <td className="p-4 text-sm text-muted-foreground hidden lg:table-cell">{d.since}</td>
+                  <td className="p-4 text-sm">—</td>
+                  <td className="p-4 text-sm hidden md:table-cell">—</td>
+                  <td className="p-4 text-sm text-muted-foreground hidden lg:table-cell">{d.acquisitionChannel || "—"}</td>
+                  <td className="p-4 text-sm text-muted-foreground hidden lg:table-cell">{d.firstDonationDate ?? "—"}</td>
                 </tr>
               ))}
             </tbody>

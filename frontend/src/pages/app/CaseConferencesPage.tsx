@@ -1,22 +1,36 @@
+import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Plus, Calendar, Users } from "lucide-react";
 import { Link } from "react-router-dom";
-import { localData } from "@/lib/localData";
+import { residentsApi } from "@/lib/api";
 
-const conferences = [
-  { id: 1, title: "Quarterly Review - Residential Program", date: "2026-04-10", time: "2:00 PM", attendees: 5, status: "Upcoming", cases: ["Jane D.", "Aisha T.", "Lin W."] },
-  { id: 2, title: "Transition Planning - Emily R.", date: "2026-04-07", time: "10:00 AM", attendees: 3, status: "Upcoming", cases: ["Emily R."] },
-  { id: 3, title: "Monthly Outpatient Review", date: "2026-04-01", time: "3:00 PM", attendees: 4, status: "Completed", cases: ["Maria S."] },
-  { id: 4, title: "Emergency Review - New Intake", date: "2026-03-28", time: "9:00 AM", attendees: 6, status: "Completed", cases: ["Lin W."] },
-];
-
-const statusColors: Record<string, "default" | "success"> = { Upcoming: "default", Completed: "success" };
+type ResidentRow = {
+  residentId: number;
+  caseControlNo: string;
+  internalCode: string;
+  caseStatus: string;
+};
 
 export default function CaseConferencesPage() {
-  const stored = localData.listConferences();
-  const allConferences = [...stored, ...conferences];
+  const [residents, setResidents] = useState<ResidentRow[] | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    residentsApi
+      .list()
+      .then((res) => {
+        if (!res.success) throw new Error(res.message || "Failed to load residents");
+        setResidents(res.data as ResidentRow[]);
+      })
+      .catch((err: Error) => setError(err.message ?? "Failed to load"))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return <div className="p-8 text-muted-foreground">Loading...</div>;
+  if (error) return <div className="p-8 text-destructive">{error}</div>;
+  if (!residents) return <div className="p-8 text-muted-foreground">No data</div>;
 
   return (
     <div className="space-y-6">
@@ -32,28 +46,39 @@ export default function CaseConferencesPage() {
         </Button>
       </div>
 
+      <Card className="border-dashed">
+        <CardContent className="p-5 text-sm text-muted-foreground leading-relaxed">
+          The API does not expose a single global conference list.{" "}
+          <strong className="text-foreground font-medium">Conference-related context</strong> for each young person is best viewed on their{" "}
+          <Link to="/app/caseload" className="text-primary underline-offset-4 hover:underline">
+            resident detail
+          </Link>{" "}
+          page alongside visits and recordings. Below is your active caseload for quick access.
+        </CardContent>
+      </Card>
+
       <div className="grid gap-4">
-        {allConferences.map((c) => (
-          <Card key={c.id} className="hover:shadow-warm-lg transition-shadow cursor-pointer">
+        {residents.map((r) => (
+          <Card key={r.residentId} className="hover:shadow-warm-lg transition-shadow">
             <CardContent className="p-5">
-              <div className="flex items-start justify-between gap-4">
+              <Link
+                to={`/app/caseload/${r.residentId}`}
+                className="flex items-start justify-between gap-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-xl"
+              >
                 <div className="flex items-start gap-4">
                   <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center mt-0.5 shrink-0">
                     <Calendar className="h-5 w-5 text-primary" />
                   </div>
                   <div>
-                    <p className="font-medium">{c.title}</p>
-                    <p className="text-sm text-muted-foreground mt-1">{c.date} at {c.time}</p>
+                    <p className="font-medium">{r.internalCode}</p>
+                    <p className="text-sm text-muted-foreground mt-1">{r.caseControlNo}</p>
                     <div className="flex items-center gap-2 mt-2">
                       <Users className="h-3.5 w-3.5 text-muted-foreground" />
-                      <span className="text-xs text-muted-foreground">{c.attendees} attendees</span>
-                      <span className="text-xs text-muted-foreground">·</span>
-                      <span className="text-xs text-muted-foreground">Cases: {c.cases.join(", ")}</span>
+                      <span className="text-xs text-muted-foreground">Status: {r.caseStatus}</span>
                     </div>
                   </div>
                 </div>
-                <Badge variant={statusColors[c.status]}>{c.status}</Badge>
-              </div>
+              </Link>
             </CardContent>
           </Card>
         ))}

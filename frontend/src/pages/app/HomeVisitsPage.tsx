@@ -1,22 +1,36 @@
+import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Plus, Home, MapPin } from "lucide-react";
 import { Link } from "react-router-dom";
-import { localData } from "@/lib/localData";
+import { residentsApi } from "@/lib/api";
 
-const visits = [
-  { id: 1, resident: "Aisha T.", address: "1234 Elm St, Suite 5", date: "2026-04-08", time: "10:00 AM", status: "Scheduled", worker: "James Rivera" },
-  { id: 2, resident: "Emily R.", address: "567 Oak Ave", date: "2026-04-05", time: "2:00 PM", status: "Completed", worker: "Sarah Mitchell" },
-  { id: 3, resident: "Jane D.", address: "890 Pine Blvd", date: "2026-04-03", time: "11:00 AM", status: "Completed", worker: "James Rivera" },
-  { id: 4, resident: "Lin W.", address: "234 Maple Dr, Apt 2B", date: "2026-04-10", time: "9:30 AM", status: "Scheduled", worker: "Sarah Mitchell" },
-];
-
-const statusColors: Record<string, "default" | "success"> = { Scheduled: "default", Completed: "success" };
+type ResidentRow = {
+  residentId: number;
+  caseControlNo: string;
+  internalCode: string;
+  caseStatus: string;
+};
 
 export default function HomeVisitsPage() {
-  const stored = localData.listVisits();
-  const allVisits = [...stored, ...visits];
+  const [residents, setResidents] = useState<ResidentRow[] | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    residentsApi
+      .list()
+      .then((res) => {
+        if (!res.success) throw new Error(res.message || "Failed to load residents");
+        setResidents(res.data as ResidentRow[]);
+      })
+      .catch((err: Error) => setError(err.message ?? "Failed to load"))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return <div className="p-8 text-muted-foreground">Loading...</div>;
+  if (error) return <div className="p-8 text-destructive">{error}</div>;
+  if (!residents) return <div className="p-8 text-muted-foreground">No data</div>;
 
   return (
     <div className="space-y-6">
@@ -32,28 +46,37 @@ export default function HomeVisitsPage() {
         </Button>
       </div>
 
+      <Card className="border-dashed">
+        <CardContent className="p-5 text-sm text-muted-foreground leading-relaxed">
+          There is no global list of visits in the API.{" "}
+          <strong className="text-foreground font-medium">Visit history for each young person</strong> is shown on their{" "}
+          <Link to="/app/caseload" className="text-primary underline-offset-4 hover:underline">
+            resident detail
+          </Link>{" "}
+          page. Open a case below to go to their profile, or use Schedule Visit to log a new visit.
+        </CardContent>
+      </Card>
+
       <div className="grid gap-4">
-        {allVisits.map((v) => (
-          <Card key={v.id} className="hover:shadow-warm-lg transition-shadow cursor-pointer">
+        {residents.map((r) => (
+          <Card key={r.residentId} className="hover:shadow-warm-lg transition-shadow">
             <CardContent className="p-5">
-              <div className="flex items-center justify-between">
+              <Link
+                to={`/app/caseload/${r.residentId}`}
+                className="flex items-center justify-between focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-xl"
+              >
                 <div className="flex items-center gap-4">
                   <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
                     <Home className="h-5 w-5 text-primary" />
                   </div>
                   <div>
-                    <p className="font-medium">{v.resident}</p>
+                    <p className="font-medium">{r.internalCode}</p>
                     <div className="flex items-center gap-1 text-sm text-muted-foreground mt-0.5">
-                      <MapPin className="h-3 w-3" /> {v.address}
+                      <MapPin className="h-3 w-3" /> Case {r.caseControlNo} · {r.caseStatus}
                     </div>
                   </div>
                 </div>
-                <div className="text-right">
-                  <Badge variant={statusColors[v.status]}>{v.status}</Badge>
-                  <p className="text-sm text-muted-foreground mt-1">{v.date} · {v.time}</p>
-                  <p className="text-xs text-muted-foreground">{v.worker}</p>
-                </div>
-              </div>
+              </Link>
             </CardContent>
           </Card>
         ))}

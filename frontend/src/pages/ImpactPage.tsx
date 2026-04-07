@@ -1,38 +1,77 @@
+import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Users, Heart, TrendingUp, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import textileBg from "@/assets/textile_bg.png";
+import { dashboardApi } from "@/lib/api";
 
-const metrics = [
-  {
-    label: "Survivors who've walked with us",
-    value: "247",
-    change: "Each number is a person. Names and stories stay private here.",
-    icon: Users,
-  },
-  {
-    label: "Young people in care today",
-    value: "42",
-    change: "In safe housing and counseling, not “file numbers,” but neighbors rebuilding.",
-    icon: Shield,
-  },
-  {
-    label: "Neighbors who give & volunteer",
-    value: "1,834",
-    change: "Families, congregations, and partners standing with children and young people in need.",
-    icon: Heart,
-  },
-  {
-    label: "Young people finishing key milestones",
-    value: "89%",
-    change: "Core program goals met: education, stability, and steps toward home.",
-    icon: TrendingUp,
-  },
-];
+type ImpactSnapshot = {
+  headline: string;
+  summaryText: string;
+  metricPayloadJson: string;
+};
+
+type ImpactData = {
+  aggregateMetrics: { activeResidents: number; totalDonationsYtd: number };
+  latestPublishedSnapshot: ImpactSnapshot | null;
+};
+
+function formatPhp(n: number): string {
+  return new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP", maximumFractionDigits: 0 }).format(n);
+}
 
 export default function ImpactPage() {
+  const [data, setData] = useState<ImpactData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    dashboardApi
+      .impact()
+      .then((res) => {
+        if (!res.success) throw new Error(res.message || "Failed to load impact data");
+        setData(res.data as ImpactData);
+      })
+      .catch((err: Error) => setError(err.message ?? "Failed to load"))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const metrics = useMemo(() => {
+    const active = data?.aggregateMetrics.activeResidents ?? 0;
+    const ytd = data?.aggregateMetrics.totalDonationsYtd ?? 0;
+    return [
+      {
+        label: "Survivors who've walked with us",
+        value: "247",
+        change: "Cumulative program total (not provided by live API).",
+        icon: Users,
+      },
+      {
+        label: "Young people in care today",
+        value: String(active),
+        change: "In safe housing and counseling, not “file numbers,” but neighbors rebuilding.",
+        icon: Shield,
+      },
+      {
+        label: "Total donations this year",
+        value: formatPhp(Number(ytd)),
+        change: "Year-to-date total from operational data (PHP).",
+        icon: Heart,
+      },
+      {
+        label: "Young people finishing key milestones",
+        value: "89%",
+        change: "Illustrative program rate (not provided by live API). Core program goals: education, stability, and steps toward home.",
+        icon: TrendingUp,
+      },
+    ];
+  }, [data]);
+
+  if (loading) return <div className="p-8 text-muted-foreground">Loading...</div>;
+  if (error) return <div className="p-8 text-destructive">{error}</div>;
+
   return (
     <div className="py-16">
       <div className="section-container">
@@ -51,6 +90,12 @@ export default function ImpactPage() {
           <p className="text-sm text-muted-foreground max-w-xl mx-auto mt-4 italic border-l-2 border-primary/40 pl-4 text-left md:text-center md:border-l-0 md:pl-0 md:border-t md:pt-4 md:border-primary/40">
             We share aggregates the way a responsible nonprofit should: honest about scale, careful with individual dignity.
           </p>
+          {data?.latestPublishedSnapshot && (
+            <div className="mt-6 max-w-2xl mx-auto text-left rounded-xl border border-border bg-card/60 p-4">
+              <p className="font-heading font-semibold text-foreground">{data.latestPublishedSnapshot.headline}</p>
+              <p className="text-sm text-muted-foreground mt-2 leading-relaxed">{data.latestPublishedSnapshot.summaryText}</p>
+            </div>
+          )}
           <div className="mt-8 flex items-center justify-center">
             <Button variant="hero" size="lg" asChild>
               <Link to="/donate">Stand with children in need</Link>

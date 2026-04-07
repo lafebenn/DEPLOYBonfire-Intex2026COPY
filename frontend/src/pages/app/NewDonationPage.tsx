@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { localData } from "@/lib/localData";
+import { donorsApi } from "@/lib/api";
 
 const donationTypes = ["Monthly", "One-time", "Annual", "Grant"] as const;
 
@@ -21,12 +21,19 @@ export default function NewDonationPage() {
   const [amount, setAmount] = useState("");
   const [allocation, setAllocation] = useState("Direct Services");
   const [date, setDate] = useState(defaultDate);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   const canSubmit =
     donorName.trim().length > 0 &&
     amount.trim().length > 0 &&
     allocation.trim().length > 0 &&
     date.trim().length > 0;
+
+  function parseAmount(raw: string): number | null {
+    const n = Number(raw.replace(/[^0-9.]/g, ""));
+    return Number.isFinite(n) ? n : null;
+  }
 
   return (
     <div className="space-y-6">
@@ -36,6 +43,8 @@ export default function NewDonationPage() {
           Record a new donation or contribution (stored locally for now).
         </p>
       </div>
+
+      {submitError && <div className="text-sm text-destructive">{submitError}</div>}
 
       <Card className="card-warm">
         <CardHeader>
@@ -55,7 +64,7 @@ export default function NewDonationPage() {
             </div>
             <div className="space-y-2">
               <Label>Type</Label>
-              <Select value={donationType} onValueChange={(v) => setDonationType(v as typeof donationType)}>
+              <Select value={donationType} onValueChange={(v) => setDonationType(v as (typeof donationTypes)[number])}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -102,20 +111,50 @@ export default function NewDonationPage() {
               Cancel
             </Button>
             <Button
-              disabled={!canSubmit}
+              disabled={!canSubmit || submitting}
               onClick={() => {
-                localData.addDonation({
-                  donorName: donorName.trim(),
-                  donationType,
-                  amount: amount.trim(),
-                  allocation: allocation.trim(),
-                  date,
-                });
-                toast({
-                  title: "Donation saved",
-                  description: `Recorded ${amount.trim()} from ${donorName.trim()}.`,
-                });
-                navigate("/app/donors");
+                setSubmitError(null);
+                setSubmitting(true);
+                const parsed = parseAmount(amount);
+                if (parsed == null) {
+                  setSubmitError("Enter a valid amount.");
+                  setSubmitting(false);
+                  return;
+                }
+                donorsApi
+                  .supportersList({ search: donorName.trim() })
+                  .then((listRes) => {
+                    if (!listRes.success) throw new Error(listRes.message || "Failed to look up donor");
+                    const rows = listRes.data as { supporterId: number; displayName: string }[];
+                    if (rows.length !== 1) {
+                      throw new Error("Enter a donor name that matches exactly one supporter in the database.");
+                    }
+                    return donorsApi.donationCreate({
+                      supporterId: rows[0].supporterId,
+                      donationType,
+                      donationDate: date,
+                      channelSource: allocation.trim(),
+                      currencyCode: "PHP",
+                      amount: parsed,
+                      estimatedValue: null,
+                      impactUnit: null,
+                      isRecurring: donationType === "Monthly",
+                      campaignName: null,
+                      notes: null,
+                      createdByPartnerId: null,
+                      referralPostId: null,
+                    });
+                  })
+                  .then((res) => {
+                    if (!res.success) throw new Error(res.message || "Failed to record donation");
+                    toast({
+                      title: "Donation saved",
+                      description: `Recorded ${amount.trim()} from ${donorName.trim()}.`,
+                    });
+                    navigate("/app/donors");
+                  })
+                  .catch((err: Error) => setSubmitError(err.message ?? "Failed to save"))
+                  .finally(() => setSubmitting(false));
               }}
             >
               Save donation
@@ -126,4 +165,3 @@ export default function NewDonationPage() {
     </div>
   );
 }
-

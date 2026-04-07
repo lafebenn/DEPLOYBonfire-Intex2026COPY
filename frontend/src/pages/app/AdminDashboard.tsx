@@ -1,26 +1,78 @@
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
 import { Users, Heart, Calendar, TrendingUp, FileText, Clock } from "lucide-react";
 import { Link } from "react-router-dom";
+import { dashboardApi } from "@/lib/api";
 
-const stats = [
-  { label: "Active Residents", value: "42", icon: Users, trend: "+3 this month" },
-  { label: "Recent Donations", value: "$12,450", icon: Heart, trend: "Last 30 days" },
-  { label: "Upcoming Conferences", value: "7", icon: Calendar, trend: "This week" },
-  { label: "Program Progress", value: "87%", icon: TrendingUp, trend: "Avg. completion" },
-];
+type SafehouseOcc = {
+  safehouseId: number;
+  name: string;
+  currentOccupancy: number;
+  capacityGirls: number;
+};
 
-const recentActivity = [
-  { text: "New intake completed for resident #R-2024-089", time: "2 hours ago", type: "case" },
-  { text: "Monthly donation of $500 received from Sarah K.", time: "4 hours ago", type: "donation" },
-  { text: "Case conference scheduled for April 10", time: "Yesterday", type: "conference" },
-  { text: "Home visit report filed for resident #R-2024-075", time: "Yesterday", type: "visit" },
-  { text: "Process recording submitted by James R.", time: "2 days ago", type: "recording" },
-];
+type RecentDonation = {
+  donationId: number;
+  amount: number | null;
+  estimatedValue: number | null;
+  donationDate: string;
+  donationType: string;
+  supporterName: string;
+};
+
+type AdminDashboardData = {
+  activeResidentCount: number;
+  atRiskCount: number;
+  monthlyDonationTotal: number;
+  safehouseOccupancy: SafehouseOcc[];
+  recentDonations: RecentDonation[];
+};
+
+function formatPhp(n: number): string {
+  return new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP", maximumFractionDigits: 0 }).format(n);
+}
+
+function donationLine(d: RecentDonation): string {
+  const amt = d.amount ?? d.estimatedValue;
+  const amtStr = amt != null ? formatPhp(Number(amt)) : d.donationType;
+  return `${d.supporterName} · ${d.donationType} · ${amtStr}`;
+}
 
 export default function AdminDashboard() {
   const { user } = useAuth();
+  const [data, setData] = useState<AdminDashboardData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    dashboardApi
+      .admin()
+      .then((res) => {
+        if (!res.success) throw new Error(res.message || "Failed to load dashboard");
+        setData(res.data as AdminDashboardData);
+      })
+      .catch((err: Error) => setError(err.message ?? "Failed to load"))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return <div className="p-8 text-muted-foreground">Loading...</div>;
+  if (error) return <div className="p-8 text-destructive">{error}</div>;
+  if (!data) return <div className="p-8 text-muted-foreground">No data</div>;
+
+  const stats = [
+    { label: "Active Residents", value: String(data.activeResidentCount), icon: Users, trend: "Currently active cases" },
+    { label: "At-Risk Residents", value: String(data.atRiskCount), icon: TrendingUp, trend: "ML risk flag count" },
+    { label: "This Month's Donations", value: formatPhp(Number(data.monthlyDonationTotal)), icon: Heart, trend: "Sum for current month" },
+    { label: "Safehouses", value: String(data.safehouseOccupancy.length), icon: Calendar, trend: "Active safehouse sites" },
+  ];
+
+  const recentActivity = (data.recentDonations ?? []).map((d) => ({
+    text: donationLine(d),
+    time: d.donationDate,
+    type: "donation" as const,
+  }));
 
   return (
     <div className="space-y-8">
@@ -61,15 +113,19 @@ export default function AdminDashboard() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {recentActivity.map((item, i) => (
-                <div key={i} className="flex items-start gap-3 pb-3 border-b border-border last:border-0 last:pb-0">
-                  <div className="w-2 h-2 rounded-full bg-primary mt-2 shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-foreground">{item.text}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{item.time}</p>
+              {recentActivity.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No recent donations.</p>
+              ) : (
+                recentActivity.map((item, i) => (
+                  <div key={i} className="flex items-start gap-3 pb-3 border-b border-border last:border-0 last:pb-0">
+                    <div className="w-2 h-2 rounded-full bg-primary mt-2 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-foreground">{item.text}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{item.time}</p>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </CardContent>
         </Card>
