@@ -96,6 +96,7 @@ export const authApi = {
       displayName: string;
       role: string;
       linkedSupporterId: number | null;
+      twoFactorEnabled?: boolean;
     }>("/api/auth/me");
   },
   async logout() {
@@ -217,7 +218,13 @@ export type SupporterListRow = {
 
 export type SupportersListPayload = {
   supporters: SupporterListRow[];
-  summary: { ytdDonationTotal: number; avgMonthlyYtd: number };
+  summary: {
+    last12MonthsDonationTotal: number;
+    avgMonthlyLast12: number;
+    /** @deprecated API legacy */
+    ytdDonationTotal?: number;
+    avgMonthlyYtd?: number;
+  };
 };
 
 export const donorsApi = {

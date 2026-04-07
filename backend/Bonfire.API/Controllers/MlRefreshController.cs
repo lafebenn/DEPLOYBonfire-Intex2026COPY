@@ -50,7 +50,7 @@ public class MlRefreshController : ControllerBase
             }
         });
 
-        return Accepted(ApiResponse<object>.Ok(new { queued = true }, "Refresh queued"));
+        return Ok(ApiResponse<object>.Ok(new { queued = true }, "Refresh queued"));
     }
 }
 

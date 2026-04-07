@@ -8,6 +8,7 @@ export interface User {
   name: string;
   email: string;
   role: UserRole;
+  twoFactorEnabled?: boolean;
 }
 
 export type LoginOutcome =
@@ -49,6 +50,7 @@ async function loadUserFromSession(): Promise<User | null> {
       email: d.email,
       name: d.displayName || d.email,
       role: mapApiRoleToUserRole(d.role),
+      twoFactorEnabled: Boolean(d.twoFactorEnabled),
     };
   } catch {
     setStoredToken(null);

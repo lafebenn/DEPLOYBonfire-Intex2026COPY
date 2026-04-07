@@ -41,6 +41,28 @@ function formatGiftAmount(v: number | null | undefined): string {
   return formatPhp(Number(v));
 }
 
+function num(v: unknown): number {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+}
+
+/** Picks summary totals from camelCase or PascalCase API payloads. */
+function extractListSummary(raw: unknown): SupportersListPayload["summary"] {
+  const p = raw as Record<string, unknown>;
+  const s = (p.summary ?? {}) as Record<string, unknown>;
+  const last12 = num(
+    s.last12MonthsDonationTotal ??
+      s.Last12MonthsDonationTotal ??
+      s.ytdDonationTotal ??
+      s.YtdDonationTotal
+  );
+  const avg = num(s.avgMonthlyLast12 ?? s.AvgMonthlyLast12 ?? s.avgMonthlyYtd ?? s.AvgMonthlyYtd);
+  return {
+    last12MonthsDonationTotal: last12,
+    avgMonthlyLast12: avg,
+  };
+}
+
 /** Handles both current API shape and legacy array-only responses. */
 function normalizeSupportersListPayload(data: unknown): SupportersListPayload {
   if (Array.isArray(data)) {
@@ -61,16 +83,19 @@ function normalizeSupportersListPayload(data: unknown): SupportersListPayload {
           latestAmount: null,
         };
       }),
-      summary: { ytdDonationTotal: 0, avgMonthlyYtd: 0 },
+      summary: { last12MonthsDonationTotal: 0, avgMonthlyLast12: 0 },
     };
   }
-  const p = data as Partial<SupportersListPayload>;
-  if (p?.supporters && p?.summary) {
-    return p as SupportersListPayload;
+  const p = data as Partial<SupportersListPayload> & Record<string, unknown>;
+  if (Array.isArray(p.supporters)) {
+    return {
+      supporters: p.supporters as SupporterListRow[],
+      summary: extractListSummary(data),
+    };
   }
   return {
     supporters: [],
-    summary: { ytdDonationTotal: 0, avgMonthlyYtd: 0 },
+    summary: { last12MonthsDonationTotal: 0, avgMonthlyLast12: 0 },
   };
 }
 
@@ -79,7 +104,7 @@ export default function DonorsPage() {
   const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [allDonors, setAllDonors] = useState<SupporterListRow[] | null>(null);
-  const [listSummary, setListSummary] = useState<{ ytdDonationTotal: number; avgMonthlyYtd: number } | null>(null);
+  const [listSummary, setListSummary] = useState<SupportersListPayload["summary"] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -178,9 +203,9 @@ export default function DonorsPage() {
             </div>
             <div>
               <p className="text-2xl font-heading font-bold">
-                {listSummary ? formatPhp(Number(listSummary.ytdDonationTotal)) : "—"}
+                {listSummary ? formatPhp(Number(listSummary.last12MonthsDonationTotal)) : "—"}
               </p>
-              <p className="text-sm text-muted-foreground">This Year (YTD)</p>
+              <p className="text-sm text-muted-foreground">Last 12 months</p>
             </div>
           </CardContent>
         </Card>
@@ -191,70 +216,13 @@ export default function DonorsPage() {
             </div>
             <div>
               <p className="text-2xl font-heading font-bold">
-                {listSummary ? formatPhp(Number(listSummary.avgMonthlyYtd)) : "—"}
+                {listSummary ? formatPhp(Number(listSummary.avgMonthlyLast12)) : "—"}
               </p>
-              <p className="text-sm text-muted-foreground">Avg. monthly (YTD ÷ month)</p>
+              <p className="text-sm text-muted-foreground">Avg. monthly (÷ 12)</p>
             </div>
           </CardContent>
         </Card>
       </div>
-
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input placeholder="Search supporters..." className="pl-10" value={search} onChange={(e) => setSearch(e.target.value)} />
-      </div>
-
-      <Card>
-        <CardHeader className="pb-0">
-          <CardTitle className="text-base font-heading">All supporters</CardTitle>
-          <p className="text-sm text-muted-foreground font-normal">Click a row to open profile and donation summary.</p>
-        </CardHeader>
-        <div className="overflow-x-auto px-6 pb-6">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-border">
-                <th className="text-left p-4 text-sm font-medium text-muted-foreground">Name</th>
-                <th className="text-left p-4 text-sm font-medium text-muted-foreground">Type</th>
-                <th className="text-left p-4 text-sm font-medium text-muted-foreground">Latest amount</th>
-                <th className="text-left p-4 text-sm font-medium text-muted-foreground hidden md:table-cell">Total / count</th>
-                <th className="text-left p-4 text-sm font-medium text-muted-foreground hidden lg:table-cell">Allocation</th>
-                <th className="text-left p-4 text-sm font-medium text-muted-foreground hidden lg:table-cell">Since</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((d, i) => (
-                <tr
-                  key={d.supporterId}
-                  className={`border-b border-border last:border-0 hover:bg-accent/50 transition-colors cursor-pointer ${i % 2 === 0 ? "bg-card" : "bg-muted/30"}`}
-                  onClick={() => navigate(`/app/donors/${d.supporterId}`)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      navigate(`/app/donors/${d.supporterId}`);
-                    }
-                  }}
-                  tabIndex={0}
-                  role="link"
-                  aria-label={`Open supporter profile for ${d.displayName}`}
-                >
-                  <td className="p-4 font-medium">{d.displayName}</td>
-                  <td className="p-4">
-                    <Badge variant={typeColors[d.supporterType] ?? "outline"}>{d.supporterType}</Badge>
-                  </td>
-                  <td className="p-4 text-sm">{formatGiftAmount(d.latestAmount)}</td>
-                  <td className="p-4 text-sm hidden md:table-cell">
-                    {d.donationCount > 0
-                      ? `${formatPhp(Number(d.totalLifetimeValue))} · ${d.donationCount}`
-                      : "—"}
-                  </td>
-                  <td className="p-4 text-sm text-muted-foreground hidden lg:table-cell">{d.acquisitionChannel || "—"}</td>
-                  <td className="p-4 text-sm text-muted-foreground hidden lg:table-cell">{d.firstDonationDate ?? "—"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Card>
 
       <Card>
         <CardHeader className="pb-2">
@@ -346,6 +314,63 @@ export default function DonorsPage() {
               </tbody>
             </table>
           )}
+        </div>
+      </Card>
+
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input placeholder="Search supporters..." className="pl-10" value={search} onChange={(e) => setSearch(e.target.value)} />
+      </div>
+
+      <Card>
+        <CardHeader className="pb-0">
+          <CardTitle className="text-base font-heading">All supporters</CardTitle>
+          <p className="text-sm text-muted-foreground font-normal">Click a row to open profile and donation summary.</p>
+        </CardHeader>
+        <div className="overflow-x-auto px-6 pb-6">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-border">
+                <th className="text-left p-4 text-sm font-medium text-muted-foreground">Name</th>
+                <th className="text-left p-4 text-sm font-medium text-muted-foreground">Type</th>
+                <th className="text-left p-4 text-sm font-medium text-muted-foreground">Latest amount</th>
+                <th className="text-left p-4 text-sm font-medium text-muted-foreground hidden md:table-cell">Total / count</th>
+                <th className="text-left p-4 text-sm font-medium text-muted-foreground hidden lg:table-cell">Allocation</th>
+                <th className="text-left p-4 text-sm font-medium text-muted-foreground hidden lg:table-cell">Since</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((d, i) => (
+                <tr
+                  key={d.supporterId}
+                  className={`border-b border-border last:border-0 hover:bg-accent/50 transition-colors cursor-pointer ${i % 2 === 0 ? "bg-card" : "bg-muted/30"}`}
+                  onClick={() => navigate(`/app/donors/${d.supporterId}`)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      navigate(`/app/donors/${d.supporterId}`);
+                    }
+                  }}
+                  tabIndex={0}
+                  role="link"
+                  aria-label={`Open supporter profile for ${d.displayName}`}
+                >
+                  <td className="p-4 font-medium">{d.displayName}</td>
+                  <td className="p-4">
+                    <Badge variant={typeColors[d.supporterType] ?? "outline"}>{d.supporterType}</Badge>
+                  </td>
+                  <td className="p-4 text-sm">{formatGiftAmount(d.latestAmount)}</td>
+                  <td className="p-4 text-sm hidden md:table-cell">
+                    {d.donationCount > 0
+                      ? `${formatPhp(Number(d.totalLifetimeValue))} · ${d.donationCount}`
+                      : "—"}
+                  </td>
+                  <td className="p-4 text-sm text-muted-foreground hidden lg:table-cell">{d.acquisitionChannel || "—"}</td>
+                  <td className="p-4 text-sm text-muted-foreground hidden lg:table-cell">{d.firstDonationDate ?? "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </Card>
     </div>

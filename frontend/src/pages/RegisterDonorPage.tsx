@@ -43,11 +43,9 @@ export default function RegisterDonorPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4 py-10">
-      <div className="w-full max-w-md space-y-6">
-        <Button variant="outline" size="lg" className="w-full" asChild>
-          <Link to="/">Back to home</Link>
-        </Button>
+    <div className="min-h-dvh flex flex-col bg-background">
+      <div className="flex-1 flex items-center justify-center px-4 py-10">
+        <div className="w-full max-w-md space-y-6">
         <div className="text-center">
           <div className="flex justify-center mb-4">
             <BonfireLogo size="lg" />
@@ -112,7 +110,15 @@ export default function RegisterDonorPage() {
             </p>
           </CardContent>
         </Card>
+        </div>
       </div>
+      <footer className="shrink-0 border-t border-border bg-background py-5 px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+        <div className="w-full max-w-md mx-auto">
+          <Button variant="outline" size="lg" className="w-full" asChild>
+            <Link to="/">Back to home</Link>
+          </Button>
+        </div>
+      </footer>
     </div>
   );
 }
