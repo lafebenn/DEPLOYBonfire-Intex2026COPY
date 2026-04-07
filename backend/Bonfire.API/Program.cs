@@ -96,9 +96,6 @@ builder.Services.AddControllers()
         };
     });
 
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
-
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -206,28 +203,30 @@ app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 
-if (isDev)
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
-
 app.MapControllers();
 
 app.MapGet("/health", () => Results.Json(new { status = "healthy" }))
     .AllowAnonymous()
     .WithName("Health");
 
-using (var scope = app.Services.CreateScope())
+if (isDev)
 {
-    if (isDev)
+    using (var scope = app.Services.CreateScope())
     {
-        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        await db.Database.MigrateAsync();
-    }
+        var startupLogger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("Startup");
+        try
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            await db.Database.MigrateAsync();
 
-    var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("Seed");
-    await DbSeeder.SeedAsync(scope.ServiceProvider, logger);
+            var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("Seed");
+            await DbSeeder.SeedAsync(scope.ServiceProvider, logger);
+        }
+        catch (Exception ex)
+        {
+            startupLogger.LogError(ex, "Database migration or seed failed; starting without completing seed.");
+        }
+    }
 }
 
 app.Run();
