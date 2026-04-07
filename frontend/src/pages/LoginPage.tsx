@@ -94,9 +94,12 @@ export default function LoginPage() {
 
   if (mfaStep) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background px-4">
-        <div className="w-full max-w-md">
-          <div className="text-center mb-8">
+      <div className="min-h-screen flex items-center justify-center bg-background px-4 py-10">
+        <div className="w-full max-w-md space-y-6">
+          <Button variant="outline" size="lg" className="w-full" asChild>
+            <Link to="/">Back to home</Link>
+          </Button>
+          <div className="text-center">
             <div className="flex justify-center mb-4">
               <BonfireLogo size="lg" />
             </div>
@@ -155,13 +158,17 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
+    <div className="min-h-screen flex items-center justify-center bg-background px-4 py-10">
+      <div className="w-full max-w-md space-y-6">
+        <Button variant="outline" size="lg" className="w-full" asChild>
+          <Link to="/">Back to home</Link>
+        </Button>
+        <div className="text-center">
           <div className="flex justify-center mb-4">
             <BonfireLogo size="lg" />
           </div>
-          <p className="text-muted-foreground">Staff, donors, and administrators</p>
+          <h1 className="font-heading text-xl font-semibold text-foreground tracking-tight">Sign in to Bonfire</h1>
+          <p className="text-muted-foreground text-sm mt-2">Staff, donors, and administrators</p>
         </div>
 
         <Card>
@@ -241,27 +248,23 @@ export default function LoginPage() {
               <p className="text-center text-xs text-muted-foreground mt-2">Signing in with Google…</p>
             )}
 
-            <div className="mt-6 pt-4 border-t border-border">
-              <p className="text-xs text-muted-foreground text-center mb-2">Grading accounts (no 2FA)</p>
-              <div className="text-xs text-muted-foreground space-y-1">
-                <p>
-                  <strong>Admin / Staff / Donor:</strong> use seeded sanctuary.org accounts (passwords 14+ chars from
-                  your env).
-                </p>
-                <p>Enable 2FA from the app after sign-in to test the authenticator step.</p>
+            {import.meta.env.DEV && (
+              <div className="mt-6 pt-4 border-t border-border">
+                <p className="text-xs text-muted-foreground text-center mb-2">Local / grading (no 2FA)</p>
+                <div className="text-xs text-muted-foreground space-y-1">
+                  <p>
+                    <strong>Admin / Staff / Donor:</strong> use seeded sanctuary.org accounts (passwords 14+ chars from
+                    your env).
+                  </p>
+                  <p>Enable 2FA from the app after sign-in to test the authenticator step.</p>
+                </div>
               </div>
-            </div>
+            )}
 
             <p className="text-sm text-center text-muted-foreground mt-4">
               New donor?{" "}
               <Link to="/register-donor" className="text-primary hover:underline font-medium">
                 Create an account
-              </Link>
-            </p>
-
-            <p className="text-xs text-center text-muted-foreground mt-3">
-              <Link to="/" className="text-primary hover:underline">
-                Back to home
               </Link>
             </p>
           </CardContent>

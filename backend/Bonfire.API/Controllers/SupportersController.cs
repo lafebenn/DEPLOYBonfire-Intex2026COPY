@@ -31,7 +31,7 @@ public class SupportersController : ControllerBase
     }
 
     [HttpGet]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,Staff")]
     public async Task<ActionResult<ApiResponse<object>>> List(
         [FromQuery] string? type,
         [FromQuery] string? status,

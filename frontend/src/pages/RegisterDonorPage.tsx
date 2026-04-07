@@ -43,14 +43,17 @@ export default function RegisterDonorPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4 py-12">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
+    <div className="min-h-screen flex items-center justify-center bg-background px-4 py-10">
+      <div className="w-full max-w-md space-y-6">
+        <Button variant="outline" size="lg" className="w-full" asChild>
+          <Link to="/">Back to home</Link>
+        </Button>
+        <div className="text-center">
           <div className="flex justify-center mb-4">
             <BonfireLogo size="lg" />
           </div>
-          <h1 className="font-heading text-2xl font-bold text-foreground">Create a donor account</h1>
-          <p className="text-muted-foreground text-sm mt-2">
+          <h1 className="font-heading text-2xl font-bold text-foreground tracking-tight">Create a donor account</h1>
+          <p className="text-muted-foreground text-sm mt-2 leading-relaxed">
             If we already have your supporter record on file, we will link it to your login automatically when the email
             matches.
           </p>
@@ -103,7 +106,7 @@ export default function RegisterDonorPage() {
             </form>
             <p className="text-center text-sm text-muted-foreground mt-4">
               Already have an account?{" "}
-              <Link to="/login" className="text-primary hover:underline">
+              <Link to="/login" className="text-primary hover:underline font-medium">
                 Sign in
               </Link>
             </p>

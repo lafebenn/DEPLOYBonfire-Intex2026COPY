@@ -53,7 +53,12 @@ export function GoogleLoginButton({ onSuccess, onError, onBusyChange }: GoogleLo
     (async () => {
       try {
         await loadScript(GSI_SCRIPT);
-        if (cancelled || !window.google?.accounts?.id || !containerRef.current) return;
+        if (cancelled || !window.google?.accounts?.id || !containerRef.current) {
+          if (!cancelled && !window.google?.accounts?.id) {
+            onError?.("Google sign-in could not load. Check your connection or site security settings (CSP).");
+          }
+          return;
+        }
         // client_id must match the API's Google:ClientId / GOOGLE_CLIENT_ID (same Google Cloud OAuth Web client).
         window.google.accounts.id.initialize({
           client_id: clientId,
@@ -80,6 +85,11 @@ export function GoogleLoginButton({ onSuccess, onError, onBusyChange }: GoogleLo
         });
       } catch (e) {
         console.error(e);
+        onError?.(
+          e instanceof Error
+            ? `Could not load Google sign-in: ${e.message}`
+            : "Could not load Google sign-in (blocked script or network).",
+        );
       }
     })();
 

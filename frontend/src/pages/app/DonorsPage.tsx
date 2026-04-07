@@ -41,6 +41,39 @@ function formatGiftAmount(v: number | null | undefined): string {
   return formatPhp(Number(v));
 }
 
+/** Handles both current API shape and legacy array-only responses. */
+function normalizeSupportersListPayload(data: unknown): SupportersListPayload {
+  if (Array.isArray(data)) {
+    return {
+      supporters: data.map((row) => {
+        const r = row as Record<string, unknown>;
+        return {
+          supporterId: Number(r.supporterId),
+          displayName: String(r.displayName ?? ""),
+          supporterType: String(r.supporterType ?? ""),
+          status: String(r.status ?? ""),
+          country: String(r.country ?? ""),
+          firstDonationDate: (r.firstDonationDate as string | null) ?? null,
+          acquisitionChannel: String(r.acquisitionChannel ?? ""),
+          donationCount: 0,
+          totalLifetimeValue: 0,
+          lastDonationDate: null,
+          latestAmount: null,
+        };
+      }),
+      summary: { ytdDonationTotal: 0, avgMonthlyYtd: 0 },
+    };
+  }
+  const p = data as Partial<SupportersListPayload>;
+  if (p?.supporters && p?.summary) {
+    return p as SupportersListPayload;
+  }
+  return {
+    supporters: [],
+    summary: { ytdDonationTotal: 0, avgMonthlyYtd: 0 },
+  };
+}
+
 export default function DonorsPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -82,7 +115,7 @@ export default function DonorsPage() {
       .supportersList()
       .then((res) => {
         if (!res.success) throw new Error(res.message || "Failed to load supporters");
-        const payload = res.data as SupportersListPayload;
+        const payload = normalizeSupportersListPayload(res.data);
         setAllDonors(payload.supporters);
         setListSummary(payload.summary);
       })

@@ -23,7 +23,7 @@ const navItems = [
   { title: "Process Recording", url: "/app/process-recording", icon: FileText, roles: ["admin", "staff"] },
   { title: "Home Visits", url: "/app/home-visits", icon: Home, roles: ["admin", "staff"] },
   { title: "Case Conferences", url: "/app/case-conferences", icon: Calendar, roles: ["admin", "staff"] },
-  { title: "Donors", url: "/app/donors", icon: Heart, roles: ["admin", "fundraising_director"] },
+  { title: "Donors", url: "/app/donors", icon: Heart, roles: ["admin", "staff", "fundraising_director"] },
   { title: "Reports", url: "/app/reports", icon: BarChart3, roles: ["admin", "fundraising_director"] },
   { title: "Social insights", url: "/app/social", icon: Share2, roles: ["admin", "staff", "fundraising_director"] },
 ];
