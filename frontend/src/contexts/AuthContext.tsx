@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
+import { authApi, getStoredToken, setStoredToken } from "@/lib/api";
 
 export type UserRole = "admin" | "staff" | "fundraising_director" | "donor";
 
@@ -11,103 +12,132 @@ export interface User {
 
 export type LoginOutcome =
   | { status: "ok"; user: User }
-  | { status: "mfa_required"; email: string };
+  | { status: "mfa_required"; email: string; requiresTwoFactor: true };
 
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<LoginOutcome>;
-  logout: () => void;
+  verifyTwoFactor: (email: string, code: string) => Promise<User>;
+  googleLogin: (idToken: string) => Promise<User>;
+  logout: () => Promise<void>;
   isAuthenticated: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-type MockUser = User & { password: string; mfaEnabled: boolean };
+function mapApiRoleToUserRole(role: string): UserRole {
+  const r = (role || "").toLowerCase();
+  if (r === "admin") return "admin";
+  if (r === "staff") return "staff";
+  if (r === "donor") return "donor";
+  return "staff";
+}
 
-// Demo accounts — align with INTEX grading (admin no MFA, donor no MFA + history, MFA account)
-const MOCK_USERS: Record<string, MockUser> = {
-  "admin@bonfire.org": {
-    id: "1",
-    name: "Sarah Mitchell",
-    email: "admin@bonfire.org",
-    role: "admin",
-    password: "admin123",
-    mfaEnabled: false,
-  },
-  "staff@bonfire.org": {
-    id: "2",
-    name: "James Rivera",
-    email: "staff@bonfire.org",
-    role: "staff",
-    password: "staff123",
-    mfaEnabled: false,
-  },
-  "director@bonfire.org": {
-    id: "3",
-    name: "Maria Chen",
-    email: "director@bonfire.org",
-    role: "fundraising_director",
-    password: "director123",
-    mfaEnabled: false,
-  },
-  "donor@bonfire.org": {
-    id: "4",
-    name: "David Reyes",
-    email: "donor@bonfire.org",
-    role: "donor",
-    password: "donor123",
-    mfaEnabled: false,
-  },
-  /** MFA-enabled (graders verify MFA is required; cannot complete in demo) */
-  "mfa@bonfire.org": {
-    id: "5",
-    name: "MFA Demo User",
-    email: "mfa@bonfire.org",
-    role: "donor",
-    password: "mfa123",
-    mfaEnabled: true,
-  },
-};
+async function loadUserFromSession(): Promise<User | null> {
+  const token = getStoredToken();
+  if (!token) return null;
+  try {
+    const res = await authApi.me();
+    if (!res.success || !res.data) {
+      setStoredToken(null);
+      return null;
+    }
+    const d = res.data;
+    return {
+      id: d.id,
+      email: d.email,
+      name: d.displayName || d.email,
+      role: mapApiRoleToUserRole(d.role),
+    };
+  } catch {
+    setStoredToken(null);
+    return null;
+  }
+}
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const stored = localStorage.getItem("bonfire_user");
-    if (stored) {
-      try {
-        setUser(JSON.parse(stored));
-      } catch {
-        localStorage.removeItem("bonfire_user");
+    let cancelled = false;
+    (async () => {
+      const u = await loadUserFromSession();
+      if (!cancelled) {
+        setUser(u);
+        setIsLoading(false);
       }
-    }
-    setIsLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  const login = async (email: string, password: string): Promise<LoginOutcome> => {
-    const mockUser = MOCK_USERS[email.toLowerCase()];
-    if (!mockUser || mockUser.password !== password) {
-      throw new Error("Invalid email or password");
+  const login = useCallback(async (email: string, password: string): Promise<LoginOutcome> => {
+    const res = await authApi.login(email.trim(), password);
+    if (!res.success) {
+      throw new Error(res.message || "Invalid email or password");
     }
-    if (mockUser.mfaEnabled) {
-      return { status: "mfa_required", email: mockUser.email };
+    const d = res.data;
+    if (d.requiresTwoFactor) {
+      return { status: "mfa_required", email: d.email ?? email.trim(), requiresTwoFactor: true };
     }
-    const { password: _p, mfaEnabled: _m, ...userData } = mockUser;
-    setUser(userData);
-    localStorage.setItem("bonfire_user", JSON.stringify(userData));
-    return { status: "ok", user: userData };
-  };
+    if (!d.token) {
+      throw new Error(res.message || "Login failed");
+    }
+    setStoredToken(d.token);
+    const u = await loadUserFromSession();
+    if (!u) throw new Error("Could not load profile");
+    setUser(u);
+    return { status: "ok", user: u };
+  }, []);
 
-  const logout = () => {
+  const verifyTwoFactor = useCallback(async (email: string, code: string) => {
+    const res = await authApi.verifyTwoFactor(email.trim(), code.trim());
+    if (!res.success || !res.data?.token) {
+      throw new Error(res.message || "Invalid verification code");
+    }
+    setStoredToken(res.data.token);
+    const u = await loadUserFromSession();
+    if (!u) throw new Error("Could not load profile");
+    setUser(u);
+    return u;
+  }, []);
+
+  const googleLogin = useCallback(async (idToken: string) => {
+    const res = await authApi.googleLogin(idToken);
+    if (!res.success || !res.data?.token) {
+      throw new Error(res.message || "Google sign-in failed");
+    }
+    setStoredToken(res.data.token);
+    const u = await loadUserFromSession();
+    if (!u) throw new Error("Could not load profile");
+    setUser(u);
+    return u;
+  }, []);
+
+  const logout = useCallback(async () => {
+    try {
+      if (getStoredToken()) await authApi.logout();
+    } catch {
+      /* ignore */
+    }
+    setStoredToken(null);
     setUser(null);
-    localStorage.removeItem("bonfire_user");
-  };
+  }, []);
 
   return (
     <AuthContext.Provider
-      value={{ user, isLoading, login, logout, isAuthenticated: !!user }}
+      value={{
+        user,
+        isLoading,
+        login,
+        verifyTwoFactor,
+        googleLogin,
+        logout,
+        isAuthenticated: !!user,
+      }}
     >
       {children}
     </AuthContext.Provider>
