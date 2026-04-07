@@ -93,7 +93,7 @@ const DEMO_PROFILES: SupporterProfile[] = [
   },
 ];
 
-/** Demo ledger — aligns with Donors list; merged with localStorage in UI */
+/** Demo ledger - aligns with Donors list; merged with localStorage in UI */
 const DEMO_CONTRIBUTIONS: ContributionLine[] = [
   { id: "demo-c1", profileId: "sup-1", date: "2026-04-01", donationType: "Monthly", amount: "$500", allocation: "Direct Services", source: "demo" },
   { id: "demo-c2", profileId: "sup-1", date: "2026-03-01", donationType: "Monthly", amount: "$500", allocation: "Direct Services", source: "demo" },
@@ -196,7 +196,7 @@ function dominantType(lines: ContributionLine[]): string {
   for (const l of lines) {
     counts.set(l.donationType, (counts.get(l.donationType) ?? 0) + 1);
   }
-  let best = lines[0]?.donationType ?? "—";
+  let best = lines[0]?.donationType ?? "N/A";
   let max = 0;
   for (const [t, c] of counts) {
     if (c > max) {

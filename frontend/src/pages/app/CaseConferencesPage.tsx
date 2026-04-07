@@ -6,10 +6,10 @@ import { Link } from "react-router-dom";
 import { localData } from "@/lib/localData";
 
 const conferences = [
-  { id: 1, title: "Quarterly Review — Residential Program", date: "2026-04-10", time: "2:00 PM", attendees: 5, status: "Upcoming", cases: ["Jane D.", "Aisha T.", "Lin W."] },
-  { id: 2, title: "Transition Planning — Emily R.", date: "2026-04-07", time: "10:00 AM", attendees: 3, status: "Upcoming", cases: ["Emily R."] },
+  { id: 1, title: "Quarterly Review - Residential Program", date: "2026-04-10", time: "2:00 PM", attendees: 5, status: "Upcoming", cases: ["Jane D.", "Aisha T.", "Lin W."] },
+  { id: 2, title: "Transition Planning - Emily R.", date: "2026-04-07", time: "10:00 AM", attendees: 3, status: "Upcoming", cases: ["Emily R."] },
   { id: 3, title: "Monthly Outpatient Review", date: "2026-04-01", time: "3:00 PM", attendees: 4, status: "Completed", cases: ["Maria S."] },
-  { id: 4, title: "Emergency Review — New Intake", date: "2026-03-28", time: "9:00 AM", attendees: 6, status: "Completed", cases: ["Lin W."] },
+  { id: 4, title: "Emergency Review - New Intake", date: "2026-03-28", time: "9:00 AM", attendees: 6, status: "Completed", cases: ["Lin W."] },
 ];
 
 const statusColors: Record<string, "default" | "success"> = { Upcoming: "default", Completed: "success" };

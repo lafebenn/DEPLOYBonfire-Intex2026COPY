@@ -48,7 +48,7 @@ export default function AuthenticatedLayout() {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  /** Donors use the public donor/giving flow only — not the staff app shell */
+  /** Donors use the public donor/giving flow only (not the staff app shell). */
   if (user?.role === "donor") {
     return <Navigate to="/donate" replace />;
   }

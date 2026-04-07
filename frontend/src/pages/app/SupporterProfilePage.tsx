@@ -158,7 +158,7 @@ export default function SupporterProfilePage() {
               </p>
             )}
             {!profile.email && !profile.phone && !profile.region && (
-              <p className="text-muted-foreground">No contact fields on file — add when you migrate supporter records.</p>
+              <p className="text-muted-foreground">No contact fields on file. Add these when you migrate supporter records.</p>
             )}
           </div>
           {profile.notes && <p className="text-muted-foreground leading-relaxed">{profile.notes}</p>}

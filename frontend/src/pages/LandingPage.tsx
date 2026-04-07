@@ -1,9 +1,13 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Heart, Shield, Users, ArrowRight, Flame } from "lucide-react";
+import { Heart, Shield, Users, ArrowRight, Flame, Scale, Sparkles } from "lucide-react";
 import { Link } from "react-router-dom";
 import bonfireImage from "@/assets/bonfire-image.png";
 import textileBg from "@/assets/textile_bg.png";
+import safetyBg from "@/assets/safety.jpg";
+import healingBg from "@/assets/healing.jpg";
+import justiceBg from "@/assets/justice.jpg";
+import empowermentBg from "@/assets/empowerment.jpg";
 
 export default function LandingPage() {
   return (
@@ -27,10 +31,11 @@ export default function LandingPage() {
               Where healing begins
             </div>
             <h1 className="font-heading text-4xl md:text-5xl lg:text-6xl font-bold text-white leading-tight mb-6">
-              A light in the darkness for trafficking survivors
+              Safety. Healing. Justice. Empowerment.
             </h1>
             <p className="text-lg text-white/85 leading-relaxed mb-10 max-w-xl mx-auto">
-              Bonfire empowers organizations to protect, rehabilitate, and restore hope to survivors through compassionate case management and community support.
+              A safe place where children-survivors of sexual abuse and exploitation can be seen, heard, and loved, supported by
+              professional care, dependable systems, and a community that shows up.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Button variant="hero" size="lg" asChild>
@@ -54,23 +59,68 @@ export default function LandingPage() {
       {/* Values */}
       <section className="py-20 bg-card/50">
         <div className="section-container">
-          <h2 className="font-heading text-3xl font-bold text-center mb-4">Built on compassion</h2>
+          <h2 className="font-heading text-3xl font-bold text-center mb-4">What we’re building toward</h2>
           <p className="text-muted-foreground text-center mb-12 max-w-lg mx-auto">
-            Every feature is designed with survivor wellbeing at the center.
+            The work is holistic (body, mind, and spirit). Our tech exists to serve that mission with dignity and discretion.
           </p>
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
             {[
-              { icon: Shield, title: "Safety First", desc: "Secure, confidential case management that protects survivor privacy at every level." },
-              { icon: Heart, title: "Donor Engagement", desc: "Transparent impact tracking that connects donors to the lives they're changing." },
-              { icon: Users, title: "Collaborative Care", desc: "Team-based tools for case conferences, home visits, and holistic support planning." },
+              {
+                icon: Shield,
+                title: "Safety",
+                desc: "Protective, confidential workflows that help staff keep young people safe, and feeling safe, day to day.",
+                bg: safetyBg,
+              },
+              {
+                icon: Heart,
+                title: "Healing",
+                desc: "Structured counseling notes, home visits, and care plans that support steady progress over time.",
+                bg: healingBg,
+              },
+              {
+                icon: Scale,
+                title: "Justice",
+                desc: "Tools to coordinate referrals and follow-ups when a survivor chooses to pursue justice, without pressure.",
+                bg: justiceBg,
+              },
+              {
+                icon: Sparkles,
+                title: "Empowerment",
+                desc: "Clear milestones and impact communication that moves from survival to voice, leadership, and reintegration.",
+                bg: empowermentBg,
+              },
             ].map((item) => (
-              <Card key={item.title} className="text-center p-8">
-                <CardContent className="pt-0 p-0">
-                  <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-5">
-                    <item.icon className="h-7 w-7 text-primary" />
+              <Card key={item.title} className="relative overflow-hidden group">
+                {/* Base layout: header (separate) + image (no overlap) */}
+                <div className="bg-card p-5">
+                  <div className="flex items-center justify-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                      <item.icon className="h-5 w-5 text-primary" />
+                    </div>
+                    <h3 className="font-heading text-lg font-semibold text-foreground">{item.title}</h3>
                   </div>
-                  <h3 className="font-heading text-xl font-semibold mb-3">{item.title}</h3>
-                  <p className="text-muted-foreground text-sm leading-relaxed">{item.desc}</p>
+                </div>
+
+                <div className="relative h-44">
+                  <img src={item.bg} alt="" className="h-full w-full object-cover" aria-hidden="true" />
+                  <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/20" aria-hidden="true" />
+                </div>
+
+                {/* Hover reveal: an OPAQUE white layer covers header + image, then text appears */}
+                <div
+                  className="absolute inset-0 z-20 bg-background opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                  aria-hidden="true"
+                />
+                <CardContent className="absolute inset-0 z-30 p-6 flex flex-col justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                  <div className="flex items-center justify-center gap-3 mb-5">
+                    <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                      <item.icon className="h-5 w-5 text-primary" />
+                    </div>
+                    <h3 className="font-heading text-lg font-semibold text-foreground">{item.title}</h3>
+                  </div>
+                  <p className="text-sm text-muted-foreground leading-relaxed text-center px-2">
+                    {item.desc}
+                  </p>
                 </CardContent>
               </Card>
             ))}
@@ -91,7 +141,7 @@ export default function LandingPage() {
             <div className="relative">
             <h2 className="font-heading text-3xl font-bold mb-4">Join the movement</h2>
             <p className="text-muted-foreground mb-8 max-w-md mx-auto">
-              Whether through donation, volunteering, or partnership — your support ignites hope.
+              Whether through donation, volunteering, or partnership, your support ignites hope.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Button variant="hero" size="lg" asChild>

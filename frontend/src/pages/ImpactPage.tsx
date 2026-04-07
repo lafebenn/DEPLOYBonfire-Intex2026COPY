@@ -9,25 +9,25 @@ const metrics = [
   {
     label: "Survivors who've walked with us",
     value: "247",
-    change: "Each number is a person—names and stories stay private here.",
+    change: "Each number is a person. Names and stories stay private here.",
     icon: Users,
   },
   {
     label: "Young people in care today",
     value: "42",
-    change: "In safe housing and counseling—not “file numbers,” but neighbors rebuilding.",
+    change: "In safe housing and counseling, not “file numbers,” but neighbors rebuilding.",
     icon: Shield,
   },
   {
     label: "Neighbors who give & volunteer",
     value: "1,834",
-    change: "Families, congregations, and partners standing with survivors.",
+    change: "Families, congregations, and partners standing with children and young people in need.",
     icon: Heart,
   },
   {
     label: "Young people finishing key milestones",
     value: "89%",
-    change: "Core program goals met—education, stability, and steps toward home.",
+    change: "Core program goals met: education, stability, and steps toward home.",
     icon: TrendingUp,
   },
 ];
@@ -46,14 +46,14 @@ export default function ImpactPage() {
           <p className="text-muted-foreground max-w-2xl mx-auto text-lg leading-relaxed">
             What you see here is <strong className="text-foreground font-medium">anonymized and added up on purpose</strong> so we
             can celebrate progress without exposing anyone’s identity. Behind every statistic is someone who deserves safety,
-            counseling, and belonging—work our staff and partners show up for every day.
+            counseling, and belonging. Our staff and partners show up for this work every day.
           </p>
           <p className="text-sm text-muted-foreground max-w-xl mx-auto mt-4 italic border-l-2 border-primary/40 pl-4 text-left md:text-center md:border-l-0 md:pl-0 md:border-t md:pt-4 md:border-primary/40">
-            We share aggregates the way a responsible nonprofit should—honest about scale, careful with individual dignity.
+            We share aggregates the way a responsible nonprofit should: honest about scale, careful with individual dignity.
           </p>
           <div className="mt-8 flex items-center justify-center">
             <Button variant="hero" size="lg" asChild>
-              <Link to="/donate">Stand with survivors</Link>
+              <Link to="/donate">Stand with children in need</Link>
             </Button>
           </div>
         </div>
@@ -87,7 +87,7 @@ export default function ImpactPage() {
           <Card className="p-8">
             <h3 className="font-heading text-xl font-semibold mb-1">Where young people are gaining ground</h3>
             <p className="text-sm text-muted-foreground mb-4 leading-relaxed">
-              Roll-ups from program teams—percentages reflect how many of those we served this period moved forward on these goals (not cold “case” tallies).
+              Roll-ups from program teams. Percentages reflect how many of those we served this period moved forward on these goals (not cold “case” tallies).
             </p>
             <div className="space-y-4">
               {[
@@ -115,7 +115,7 @@ export default function ImpactPage() {
             </p>
             <div className="space-y-4">
               {[
-                { label: "Direct survivor services", pct: 65, color: "bg-primary" },
+                { label: "Direct services for children in care", pct: 65, color: "bg-primary" },
                 { label: "Housing & facilities", pct: 18, color: "bg-secondary" },
                 { label: "Staff & training", pct: 12, color: "bg-warning" },
                 { label: "Administration", pct: 5, color: "bg-muted-foreground" },
