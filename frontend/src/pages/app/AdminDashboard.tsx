@@ -30,7 +30,7 @@ export default function AdminDashboard() {
           Authorized staff workspace. Signed in as{" "}
           <span className="text-foreground font-medium">{user?.name}</span>
           <span className="capitalize"> · {user?.role?.replace(/_/g, " ")}</span>
-          . Figures below roll up from internal program reporting—handle with care.
+          . Figures below roll up from internal program reporting. Handle with care.
         </p>
       </div>
 

@@ -133,7 +133,7 @@ export default function ResidentDetailPage() {
             <DetailRow label="Date of admission" value={resident.admitted} />
             <DetailRow
               label="Case closed"
-              value={resident.dateClosed ?? "— Open case —"}
+              value={resident.dateClosed ?? "Open case"}
             />
             <DetailRow label="Program" value={resident.program} />
             <DetailRow
@@ -233,14 +233,14 @@ export default function ResidentDetailPage() {
           </CardHeader>
           <CardContent className="space-y-0">
             <DetailRow label="PWD" value={resident.isPwd ? "Yes" : "No"} />
-            <DetailRow label="PWD type" value={resident.pwdType ?? "—"} />
+            <DetailRow label="PWD type" value={resident.pwdType ?? "N/A"} />
             <DetailRow
               label="Special needs"
               value={resident.hasSpecialNeeds ? "Yes" : "No"}
             />
             <DetailRow
               label="Notes"
-              value={resident.specialNeedsNote ?? "—"}
+              value={resident.specialNeedsNote ?? "N/A"}
             />
           </CardContent>
         </Card>

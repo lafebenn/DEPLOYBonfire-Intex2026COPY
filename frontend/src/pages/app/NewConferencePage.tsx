@@ -39,7 +39,7 @@ export default function NewConferencePage() {
             <Label htmlFor="title">Title</Label>
             <Input
               id="title"
-              placeholder="Quarterly Review — Residential Program"
+              placeholder="Quarterly Review - Residential Program"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               autoComplete="off"

@@ -6,7 +6,7 @@
 
 @layer base {
   :root {
-    /* Bonfire warm palette — all HSL */
+    /* Bonfire warm palette - all HSL */
     --background: 30 60% 96%;         /* #FDF6EE warm cream */
     --foreground: 24 52% 12%;         /* #2C1A0E deep warm charcoal */
 
@@ -43,7 +43,7 @@
 
     --radius: 0.75rem;
 
-    /* Sidebar — deep warm brown interior */
+    /* Sidebar - deep warm brown interior */
     --sidebar-background: 20 40% 10%;
     --sidebar-foreground: 30 30% 85%;
     --sidebar-primary: 24 76% 43%;

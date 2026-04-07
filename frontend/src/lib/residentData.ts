@@ -10,7 +10,7 @@ export type ResidentListItem = {
   admitted: string;
 };
 
-/** Full resident profile (demo data — mirrors caseload inventory fields from INTEX) */
+/** Full resident profile (demo data - mirrors caseload inventory fields from INTEX) */
 export type ResidentDetail = ResidentListItem & {
   internalCode: string;
   safehouse: string;
@@ -72,7 +72,7 @@ const MOCK_RESIDENTS: ResidentDetail[] = [
       informalSettler: true,
     },
     referralSource: "Government Agency",
-    referringAgency: "DSWD Regional Office — Field Social Worker Maria L.",
+    referringAgency: "DSWD Regional Office - Field Social Worker Maria L.",
     assignedSocialWorker: "James Rivera",
     initialAssessment: "For reunification with supervised family contact",
     reintegrationType: "Family Reunification",
@@ -194,7 +194,7 @@ const MOCK_RESIDENTS: ResidentDetail[] = [
       informalSettler: false,
     },
     referralSource: "Community",
-    referringAgency: "Barangay Council — Child Protection Officer",
+    referringAgency: "Barangay Council - Child Protection Officer",
     assignedSocialWorker: "Sarah Mitchell",
     initialAssessment: "For adoption (domestic) pathway exploration",
     reintegrationType: "Adoption (Domestic)",
@@ -233,7 +233,7 @@ const MOCK_RESIDENTS: ResidentDetail[] = [
       informalSettler: true,
     },
     referralSource: "Court Order",
-    referringAgency: "Family Court — Case Worker R. Dela Cruz",
+    referringAgency: "Family Court - Case Worker R. Dela Cruz",
     assignedSocialWorker: "James Rivera",
     initialAssessment: "For residential stabilization before reunification assessment",
     reintegrationType: "Family Reunification",
@@ -290,8 +290,8 @@ function intakeToDetail(intake: IntakeCase): ResidentDetail {
   return {
     ...intake,
     internalCode: `INT-${intake.id.replace(/[^a-zA-Z0-9]/g, "") || "NEW"}`,
-    safehouse: "— Assign on intake —",
-    safehouseCode: "—",
+    safehouse: "Assign on intake",
+    safehouseCode: "TBD",
     caseCategory: "Pending classification",
     subcategories: [
       { label: "Trafficked", value: false },
@@ -309,16 +309,16 @@ function intakeToDetail(intake: IntakeCase): ResidentDetail {
       parentPwd: false,
       informalSettler: false,
     },
-    referralSource: "—",
-    referringAgency: "—",
-    assignedSocialWorker: "— Unassigned",
+    referralSource: "TBD",
+    referringAgency: "TBD",
+    assignedSocialWorker: "Unassigned",
     initialAssessment: "Intake in progress",
     reintegrationType: "None",
     reintegrationStatus: "Not Started",
     initialRiskLevel: "Medium",
     currentRiskLevel: "Medium",
     dateClosed: null,
-    notesSummary: "New intake — complete assessment and assign safehouse.",
+    notesSummary: "New intake: complete assessment and assign safehouse.",
     notesRestrictedHint: "No restricted notes yet.",
   };
 }

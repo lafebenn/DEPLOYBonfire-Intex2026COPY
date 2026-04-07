@@ -6,3 +6,9 @@
 **/obj/
 .vs/
 .DS_Store
+node_modules/
+publish/
+publish.zip
+package-lock.json
+backend/Bonfire.API/bin/
+backend/Bonfire.API/obj/

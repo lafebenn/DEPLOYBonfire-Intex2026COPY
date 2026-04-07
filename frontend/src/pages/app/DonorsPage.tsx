@@ -4,16 +4,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search, Plus, Heart, DollarSign } from "lucide-react";
 import { useState } from "react";
-import { Link } from "react-router-dom";
-import { localData } from "@/lib/localData";
-
-const donors = [
-  { id: 1, name: "Sarah Kingsley", type: "Monthly", amount: "$500/mo", total: "$6,000", allocation: "Direct Services", since: "2022" },
-  { id: 2, name: "Robert Chen", type: "One-time", amount: "$2,500", total: "$7,500", allocation: "Housing", since: "2021" },
-  { id: 3, name: "Grace Foundation", type: "Grant", amount: "$25,000", total: "$75,000", allocation: "General", since: "2020" },
-  { id: 4, name: "Michael Torres", type: "Monthly", amount: "$100/mo", total: "$2,400", allocation: "Training", since: "2023" },
-  { id: 5, name: "Amara Johnson", type: "Annual", amount: "$5,000/yr", total: "$15,000", allocation: "Direct Services", since: "2021" },
-];
+import { Link, useNavigate } from "react-router-dom";
+import { listSupporterTableRows } from "@/lib/supporterData";
 
 const typeColors: Record<string, "default" | "secondary" | "outline" | "warning"> = {
   Monthly: "default",
@@ -23,26 +15,19 @@ const typeColors: Record<string, "default" | "secondary" | "outline" | "warning"
 };
 
 export default function DonorsPage() {
+  const navigate = useNavigate();
   const [search, setSearch] = useState("");
-  const stored = localData.listDonations();
-  const storedAsDonors = stored.map((d, idx) => ({
-    id: `local_${idx}`,
-    name: d.donorName,
-    type: d.donationType,
-    amount: d.amount,
-    total: d.amount,
-    allocation: d.allocation,
-    since: new Date(d.date).getFullYear().toString(),
-  }));
-  const allDonors = [...storedAsDonors, ...donors];
+  const allDonors = listSupporterTableRows();
   const filtered = allDonors.filter((d) => d.name.toLowerCase().includes(search.toLowerCase()));
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h2 className="font-heading text-2xl font-bold">Donors & Contributions</h2>
-          <p className="text-muted-foreground text-sm mt-1">Manage supporters and track donations</p>
+          <h2 className="font-heading text-2xl font-bold">Supporter profiles & contributions</h2>
+          <p className="text-muted-foreground text-sm mt-1">
+            Open a row to see full gift history (demo data + gifts recorded on this device).
+          </p>
         </div>
         <Button asChild>
           <Link to="/app/donations/new">
@@ -59,7 +44,7 @@ export default function DonorsPage() {
             </div>
             <div>
               <p className="text-2xl font-heading font-bold">{allDonors.length}</p>
-              <p className="text-sm text-muted-foreground">Supporters in this demo</p>
+              <p className="text-sm text-muted-foreground">Supporters</p>
             </div>
           </CardContent>
         </Card>
@@ -89,27 +74,46 @@ export default function DonorsPage() {
 
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input placeholder="Search donors..." className="pl-10" value={search} onChange={(e) => setSearch(e.target.value)} />
+        <Input placeholder="Search supporters..." className="pl-10" value={search} onChange={(e) => setSearch(e.target.value)} />
       </div>
 
       <Card>
-        <div className="overflow-x-auto">
+        <CardHeader className="pb-0">
+          <CardTitle className="text-base font-heading">All supporters</CardTitle>
+          <p className="text-sm text-muted-foreground font-normal">Click a row to open profile and donation summary.</p>
+        </CardHeader>
+        <div className="overflow-x-auto px-6 pb-6">
           <table className="w-full">
             <thead>
               <tr className="border-b border-border">
                 <th className="text-left p-4 text-sm font-medium text-muted-foreground">Name</th>
                 <th className="text-left p-4 text-sm font-medium text-muted-foreground">Type</th>
-                <th className="text-left p-4 text-sm font-medium text-muted-foreground">Amount</th>
-                <th className="text-left p-4 text-sm font-medium text-muted-foreground hidden md:table-cell">Total Given</th>
+                <th className="text-left p-4 text-sm font-medium text-muted-foreground">Latest amount</th>
+                <th className="text-left p-4 text-sm font-medium text-muted-foreground hidden md:table-cell">Total / count</th>
                 <th className="text-left p-4 text-sm font-medium text-muted-foreground hidden lg:table-cell">Allocation</th>
                 <th className="text-left p-4 text-sm font-medium text-muted-foreground hidden lg:table-cell">Since</th>
               </tr>
             </thead>
             <tbody>
               {filtered.map((d, i) => (
-                <tr key={d.id} className={`border-b border-border last:border-0 hover:bg-accent/50 transition-colors cursor-pointer ${i % 2 === 0 ? "bg-card" : "bg-muted/30"}`}>
+                <tr
+                  key={d.profileId}
+                  className={`border-b border-border last:border-0 hover:bg-accent/50 transition-colors cursor-pointer ${i % 2 === 0 ? "bg-card" : "bg-muted/30"}`}
+                  onClick={() => navigate(`/app/donors/${encodeURIComponent(d.profileId)}`)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      navigate(`/app/donors/${encodeURIComponent(d.profileId)}`);
+                    }
+                  }}
+                  tabIndex={0}
+                  role="link"
+                  aria-label={`Open supporter profile for ${d.name}`}
+                >
                   <td className="p-4 font-medium">{d.name}</td>
-                  <td className="p-4"><Badge variant={typeColors[d.type]}>{d.type}</Badge></td>
+                  <td className="p-4">
+                    <Badge variant={typeColors[d.type] ?? "outline"}>{d.type}</Badge>
+                  </td>
                   <td className="p-4 text-sm">{d.amount}</td>
                   <td className="p-4 text-sm hidden md:table-cell">{d.total}</td>
                   <td className="p-4 text-sm text-muted-foreground hidden lg:table-cell">{d.allocation}</td>
