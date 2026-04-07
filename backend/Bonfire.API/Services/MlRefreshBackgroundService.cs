@@ -16,11 +16,19 @@ public class MlRefreshBackgroundService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        await Task.Delay(TimeSpan.FromMinutes(1), stoppingToken);
+        await Task.Delay(TimeSpan.FromSeconds(10), stoppingToken);
         while (!stoppingToken.IsCancellationRequested)
         {
             try
             {
+                // Run once per day at midnight (server local time).
+                var nowLocal = DateTime.Now;
+                var nextMidnightLocal = nowLocal.Date.AddDays(1);
+                var delay = nextMidnightLocal - nowLocal;
+                if (delay < TimeSpan.FromSeconds(1)) delay = TimeSpan.FromSeconds(1);
+                _logger.LogInformation("ML refresh scheduled in {Delay} (next local midnight)", delay);
+                await Task.Delay(delay, stoppingToken);
+
                 using var scope = _scopeFactory.CreateScope();
                 var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
                 var ml = scope.ServiceProvider.GetRequiredService<MlService>();
@@ -51,8 +59,8 @@ public class MlRefreshBackgroundService : BackgroundService
             {
                 _logger.LogError(ex, "ML background refresh cycle failed");
             }
-
-            await Task.Delay(TimeSpan.FromHours(24), stoppingToken);
+            // After running at midnight, sleep a little to avoid double-trigger if clock shifts.
+            await Task.Delay(TimeSpan.FromMinutes(5), stoppingToken);
         }
     }
 }
