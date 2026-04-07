@@ -31,6 +31,7 @@ export default function LoginPage() {
   const { login, verifyTwoFactor } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const justRegistered = Boolean((location.state as { registered?: boolean })?.registered);
   const [searchParams] = useSearchParams();
 
   const redirectParam = searchParams.get("redirect")?.trim() || "";
@@ -171,6 +172,11 @@ export default function LoginPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
+            {justRegistered && (
+              <div className="mb-4 rounded-lg border border-border bg-muted/50 px-4 py-3 text-sm text-foreground">
+                Account created. Sign in with your new password (or use Google with the same email).
+              </div>
+            )}
             <form onSubmit={handleSubmit} className="space-y-4">
               {error && (
                 <div className="flex items-center gap-2 bg-destructive/10 text-destructive rounded-lg px-4 py-3 text-sm">
@@ -246,7 +252,14 @@ export default function LoginPage() {
               </div>
             </div>
 
-            <p className="text-xs text-center text-muted-foreground mt-4">
+            <p className="text-sm text-center text-muted-foreground mt-4">
+              New donor?{" "}
+              <Link to="/register-donor" className="text-primary hover:underline font-medium">
+                Create an account
+              </Link>
+            </p>
+
+            <p className="text-xs text-center text-muted-foreground mt-3">
               <Link to="/" className="text-primary hover:underline">
                 Back to home
               </Link>

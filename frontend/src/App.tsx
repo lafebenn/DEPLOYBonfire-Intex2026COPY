@@ -13,6 +13,7 @@ import LandingPage from "@/pages/LandingPage";
 import ImpactPage from "@/pages/ImpactPage";
 import DonatePage from "@/pages/DonatePage";
 import LoginPage from "@/pages/LoginPage";
+import RegisterDonorPage from "@/pages/RegisterDonorPage";
 import PrivacyPage from "@/pages/PrivacyPage";
 import CookiesPage from "@/pages/CookiesPage";
 
@@ -76,6 +77,7 @@ const App = () => (
             </Route>
 
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/register-donor" element={<RegisterDonorPage />} />
             <Route path="/unauthorized" element={<UnauthorizedPage />} />
 
             {/* Staff / admin app */}

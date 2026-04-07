@@ -45,6 +45,7 @@ async function request<T>(
       path.startsWith("/api/auth/login") ||
       path.startsWith("/api/auth/verify-2fa") ||
       path.startsWith("/api/auth/google-login") ||
+      path.startsWith("/api/auth/register-donor") ||
       path === "/api/auth/me";
     if (!skipRedirect) {
       window.location.href = "/login";
@@ -100,8 +101,21 @@ export const authApi = {
   async logout() {
     return request<null>("/api/auth/logout", { method: "POST" });
   },
-  async register(body: { email: string; password: string; displayName: string; role: string }) {
+  async register(body: {
+    email: string;
+    password: string;
+    displayName: string;
+    role: string;
+    linkedSupporterId?: number | null;
+  }) {
     return request<{ userId: string }>("/api/auth/register", { method: "POST", body: JSON.stringify(body) });
+  },
+  async registerDonor(body: { email: string; password: string; displayName: string }) {
+    return request<{ userId: string }>("/api/auth/register-donor", {
+      method: "POST",
+      body: JSON.stringify(body),
+      skipAuth: true,
+    });
   },
   async enable2fa() {
     return request<{ sharedKey: string; authenticatorUri: string }>("/api/auth/enable-2fa", { method: "POST" });
@@ -187,12 +201,31 @@ export const safehousesApi = {
 };
 
 /** --- Donors (supporters + donations) --- */
+export type SupporterListRow = {
+  supporterId: number;
+  displayName: string;
+  supporterType: string;
+  status: string;
+  country: string;
+  firstDonationDate: string | null;
+  acquisitionChannel: string;
+  donationCount: number;
+  totalLifetimeValue: number;
+  lastDonationDate: string | null;
+  latestAmount: number | null;
+};
+
+export type SupportersListPayload = {
+  supporters: SupporterListRow[];
+  summary: { ytdDonationTotal: number; avgMonthlyYtd: number };
+};
+
 export const donorsApi = {
   supportersList: (params?: Record<string, string | undefined>) => {
     const q = new URLSearchParams();
     if (params) Object.entries(params).forEach(([k, v]) => v && q.set(k, v));
     const s = q.toString();
-    return request<unknown[]>(`/api/supporters${s ? `?${s}` : ""}`);
+    return request<SupportersListPayload>(`/api/supporters${s ? `?${s}` : ""}`);
   },
   priorityTargets: (params?: { limit?: number }) => {
     const q = new URLSearchParams();

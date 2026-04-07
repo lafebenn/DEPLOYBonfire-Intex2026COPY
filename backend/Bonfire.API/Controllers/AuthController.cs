@@ -1,4 +1,4 @@
-using System.Security.Claims;
+using Bonfire.API.Data;
 using Bonfire.API.Infrastructure;
 using Bonfire.API.Models;
 using Bonfire.API.Services;
@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
-using Microsoft.Extensions.Options;
+using Microsoft.EntityFrameworkCore;
 
 namespace Bonfire.API.Controllers;
 
@@ -20,19 +20,22 @@ public class AuthController : ControllerBase
     private readonly JwtTokenService _jwt;
     private readonly IConfiguration _configuration;
     private readonly ILogger<AuthController> _logger;
+    private readonly AppDbContext _db;
 
     public AuthController(
         UserManager<AppUser> userManager,
         SignInManager<AppUser> signInManager,
         JwtTokenService jwt,
         IConfiguration configuration,
-        ILogger<AuthController> logger)
+        ILogger<AuthController> logger,
+        AppDbContext db)
     {
         _userManager = userManager;
         _signInManager = signInManager;
         _jwt = jwt;
         _configuration = configuration;
         _logger = logger;
+        _db = db;
     }
 
     public class RegisterRequest
@@ -41,6 +44,15 @@ public class AuthController : ControllerBase
         public string Password { get; set; } = string.Empty;
         public string DisplayName { get; set; } = string.Empty;
         public string Role { get; set; } = string.Empty;
+        /// <summary>Optional; only for <see cref="Role"/> Donor — must reference an existing supporter.</summary>
+        public int? LinkedSupporterId { get; set; }
+    }
+
+    public class RegisterDonorRequest
+    {
+        public string Email { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty;
+        public string DisplayName { get; set; } = string.Empty;
     }
 
     public class LoginRequest
@@ -71,6 +83,24 @@ public class AuthController : ControllerBase
         if (role is not ("Admin" or "Staff" or "Donor"))
             return BadRequest(ApiResponse<object>.Fail("Invalid role."));
 
+        int? linkedId = null;
+        if (role == "Donor")
+        {
+            if (req.LinkedSupporterId is { } sid)
+            {
+                var exists = await _db.Supporters.AsNoTracking().AnyAsync(s => s.SupporterId == sid);
+                if (!exists)
+                    return BadRequest(ApiResponse<object>.Fail("Linked supporter not found."));
+                linkedId = sid;
+            }
+            else
+            {
+                linkedId = await SupporterEmailLinking.TryResolveSupporterIdAsync(_db, req.Email.Trim(), _logger);
+            }
+        }
+        else if (req.LinkedSupporterId.HasValue)
+            return BadRequest(ApiResponse<object>.Fail("LinkedSupporterId is only valid for Donor role."));
+
         var user = new AppUser
         {
             UserName = req.Email.Trim(),
@@ -79,7 +109,8 @@ public class AuthController : ControllerBase
             DisplayName = req.DisplayName.Trim(),
             Role = role,
             CreatedAt = DateTime.UtcNow,
-            TwoFactorEnabled = false
+            TwoFactorEnabled = false,
+            LinkedSupporterId = linkedId
         };
 
         var result = await _userManager.CreateAsync(user, req.Password);
@@ -87,6 +118,41 @@ public class AuthController : ControllerBase
             return BadRequest(ApiResponse<object>.Fail(string.Join(" ", result.Errors.Select(e => e.Description))));
 
         await _userManager.AddToRoleAsync(user, role);
+        return StatusCode(201, ApiResponse<object>.Ok(new { userId = user.Id }, "Created"));
+    }
+
+    [AllowAnonymous]
+    [EnableRateLimiting("login")]
+    [HttpPost("register-donor")]
+    public async Task<ActionResult<ApiResponse<object>>> RegisterDonor([FromBody] RegisterDonorRequest req)
+    {
+        if (string.IsNullOrWhiteSpace(req.Email) || string.IsNullOrWhiteSpace(req.Password) ||
+            string.IsNullOrWhiteSpace(req.DisplayName))
+            return BadRequest(ApiResponse<object>.Fail("Email, password, and display name are required."));
+
+        var email = req.Email.Trim();
+        if (await _userManager.FindByEmailAsync(email) != null)
+            return Conflict(ApiResponse<object>.Fail("An account with this email already exists."));
+
+        var linkedId = await SupporterEmailLinking.TryResolveSupporterIdAsync(_db, email, _logger);
+
+        var user = new AppUser
+        {
+            UserName = email,
+            Email = email,
+            EmailConfirmed = true,
+            DisplayName = req.DisplayName.Trim(),
+            Role = "Donor",
+            CreatedAt = DateTime.UtcNow,
+            TwoFactorEnabled = false,
+            LinkedSupporterId = linkedId
+        };
+
+        var result = await _userManager.CreateAsync(user, req.Password);
+        if (!result.Succeeded)
+            return BadRequest(ApiResponse<object>.Fail(string.Join(" ", result.Errors.Select(e => e.Description))));
+
+        await _userManager.AddToRoleAsync(user, "Donor");
         return StatusCode(201, ApiResponse<object>.Ok(new { userId = user.Id }, "Created"));
     }
 
@@ -191,7 +257,11 @@ public class AuthController : ControllerBase
         return Ok(ApiResponse<object>.Ok(new { token }));
     }
 
+    /// <summary>
+    /// Validates the Google ID token. <c>Google:ClientId</c> (or <c>GOOGLE_CLIENT_ID</c>) must match the SPA Web client id (<c>VITE_GOOGLE_CLIENT_ID</c>).
+    /// </summary>
     [AllowAnonymous]
+    [EnableRateLimiting("login")]
     [HttpPost("google-login")]
     public async Task<ActionResult<ApiResponse<object>>> GoogleLogin([FromBody] GoogleLoginRequest req)
     {
@@ -202,6 +272,7 @@ public class AuthController : ControllerBase
 
         try
         {
+            // Audience must be the same OAuth 2.0 Web client ID configured in the frontend (VITE_GOOGLE_CLIENT_ID).
             var payload = await GoogleJsonWebSignature.ValidateAsync(req.IdToken, new GoogleJsonWebSignature.ValidationSettings
             {
                 Audience = new[] { clientId }
@@ -212,9 +283,22 @@ public class AuthController : ControllerBase
                 return BadRequest(ApiResponse<object>.Fail("Token has no email."));
 
             var user = await _userManager.FindByEmailAsync(email);
-            if (user == null)
+            if (user != null)
+            {
+                if (await _userManager.IsInRoleAsync(user, "Donor") && user.LinkedSupporterId == null)
+                {
+                    var sid = await SupporterEmailLinking.TryResolveSupporterIdAsync(_db, email, _logger);
+                    if (sid.HasValue)
+                    {
+                        user.LinkedSupporterId = sid;
+                        await _userManager.UpdateAsync(user);
+                    }
+                }
+            }
+            else
             {
                 var name = payload.Name ?? email.Split('@')[0];
+                var linkedId = await SupporterEmailLinking.TryResolveSupporterIdAsync(_db, email, _logger);
                 user = new AppUser
                 {
                     UserName = email,
@@ -223,7 +307,8 @@ public class AuthController : ControllerBase
                     DisplayName = name,
                     Role = "Donor",
                     CreatedAt = DateTime.UtcNow,
-                    TwoFactorEnabled = false
+                    TwoFactorEnabled = false,
+                    LinkedSupporterId = linkedId
                 };
                 var tempPwd = Guid.NewGuid().ToString("N") + Guid.NewGuid().ToString("N");
                 var create = await _userManager.CreateAsync(user, tempPwd);

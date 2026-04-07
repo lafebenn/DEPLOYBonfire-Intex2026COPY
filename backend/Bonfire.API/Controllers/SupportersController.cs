@@ -46,7 +46,114 @@ public class SupportersController : ControllerBase
             q = q.Where(s => s.DisplayName.Contains(t) || s.Email.Contains(t));
         }
 
-        return Ok(ApiResponse<object>.Ok(await q.OrderBy(s => s.DisplayName).ToListAsync()));
+        var supporters = await q.OrderBy(s => s.DisplayName).ToListAsync();
+        var supporterIds = supporters.Select(s => s.SupporterId).ToList();
+
+        var now = DateTime.UtcNow;
+        var yearStart = new DateOnly(now.Year, 1, 1);
+        // YTD average = calendar YTD sum divided by current month index (1–12), UTC.
+        var ytdTotal = await _db.Donations.AsNoTracking()
+            .Where(d => d.DonationDate >= yearStart)
+            .SumAsync(d => d.Amount ?? d.EstimatedValue ?? 0m);
+        var monthNum = Math.Max(1, now.Month);
+        var avgMonthlyYtd = ytdTotal / monthNum;
+
+        var donationAgg = new Dictionary<int, DonationAgg>();
+        if (supporterIds.Count > 0)
+        {
+            var rows = await _db.Donations.AsNoTracking()
+                .Where(d => supporterIds.Contains(d.SupporterId))
+                .Select(d => new
+                {
+                    d.SupporterId,
+                    d.DonationDate,
+                    d.Amount,
+                    d.EstimatedValue
+                })
+                .ToListAsync();
+
+            foreach (var d in rows)
+            {
+                var value = d.Amount ?? d.EstimatedValue;
+                if (!donationAgg.TryGetValue(d.SupporterId, out var agg))
+                {
+                    donationAgg[d.SupporterId] = new DonationAgg
+                    {
+                        Count = 1,
+                        Total = value ?? 0m,
+                        NewestDate = d.DonationDate,
+                        LatestAmount = value
+                    };
+                    continue;
+                }
+
+                agg.Count++;
+                agg.Total += value ?? 0m;
+                if (d.DonationDate > agg.NewestDate)
+                {
+                    agg.NewestDate = d.DonationDate;
+                    agg.LatestAmount = value;
+                }
+            }
+        }
+
+        var listRows = supporters.Select(s =>
+        {
+            donationAgg.TryGetValue(s.SupporterId, out var agg);
+            return new SupporterListRowDto
+            {
+                SupporterId = s.SupporterId,
+                DisplayName = s.DisplayName,
+                SupporterType = s.SupporterType,
+                Status = s.Status,
+                Country = s.Country,
+                FirstDonationDate = s.FirstDonationDate,
+                AcquisitionChannel = s.AcquisitionChannel,
+                DonationCount = agg?.Count ?? 0,
+                TotalLifetimeValue = agg?.Total ?? 0m,
+                LastDonationDate = agg != null ? agg.NewestDate : null,
+                LatestAmount = agg?.LatestAmount
+            };
+        }).ToList();
+
+        return Ok(ApiResponse<object>.Ok(new
+        {
+            supporters = listRows,
+            summary = new SupporterListSummaryDto
+            {
+                YtdDonationTotal = ytdTotal,
+                AvgMonthlyYtd = avgMonthlyYtd
+            }
+        }));
+    }
+
+    private sealed class DonationAgg
+    {
+        public int Count;
+        public decimal Total;
+        public DateOnly NewestDate;
+        public decimal? LatestAmount;
+    }
+
+    public sealed class SupporterListSummaryDto
+    {
+        public decimal YtdDonationTotal { get; set; }
+        public decimal AvgMonthlyYtd { get; set; }
+    }
+
+    public sealed class SupporterListRowDto
+    {
+        public int SupporterId { get; set; }
+        public string DisplayName { get; set; } = string.Empty;
+        public string SupporterType { get; set; } = string.Empty;
+        public string Status { get; set; } = string.Empty;
+        public string Country { get; set; } = string.Empty;
+        public DateOnly? FirstDonationDate { get; set; }
+        public string AcquisitionChannel { get; set; } = string.Empty;
+        public int DonationCount { get; set; }
+        public decimal TotalLifetimeValue { get; set; }
+        public DateOnly? LastDonationDate { get; set; }
+        public decimal? LatestAmount { get; set; }
     }
 
     [HttpGet("{id:int}")]

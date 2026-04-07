@@ -54,6 +54,7 @@ export function GoogleLoginButton({ onSuccess, onError, onBusyChange }: GoogleLo
       try {
         await loadScript(GSI_SCRIPT);
         if (cancelled || !window.google?.accounts?.id || !containerRef.current) return;
+        // client_id must match the API's Google:ClientId / GOOGLE_CLIENT_ID (same Google Cloud OAuth Web client).
         window.google.accounts.id.initialize({
           client_id: clientId,
           callback: async (resp) => {

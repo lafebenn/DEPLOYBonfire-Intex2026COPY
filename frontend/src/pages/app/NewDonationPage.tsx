@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { donorsApi } from "@/lib/api";
+import { donorsApi, type SupportersListPayload } from "@/lib/api";
 
 const donationTypes = ["Monthly", "One-time", "Annual", "Grant"] as const;
 
@@ -125,7 +125,7 @@ export default function NewDonationPage() {
                   .supportersList({ search: donorName.trim() })
                   .then((listRes) => {
                     if (!listRes.success) throw new Error(listRes.message || "Failed to look up donor");
-                    const rows = listRes.data as { supporterId: number; displayName: string }[];
+                    const rows = (listRes.data as SupportersListPayload).supporters;
                     if (rows.length !== 1) {
                       throw new Error("Enter a donor name that matches exactly one supporter in the database.");
                     }

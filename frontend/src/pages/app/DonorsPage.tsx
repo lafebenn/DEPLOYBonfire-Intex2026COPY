@@ -5,18 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search, Plus, Heart, DollarSign } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
-import { donorsApi, mlApi } from "@/lib/api";
+import { donorsApi, mlApi, type SupporterListRow, type SupportersListPayload } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
-
-type SupporterRow = {
-  supporterId: number;
-  displayName: string;
-  supporterType: string;
-  status: string;
-  country: string;
-  firstDonationDate: string | null;
-  acquisitionChannel: string;
-};
 
 type PriorityTarget = {
   supporterId: number;
@@ -42,11 +32,21 @@ const typeColors: Record<string, "default" | "secondary" | "outline" | "warning"
   Volunteer: "outline",
 };
 
+function formatPhp(n: number): string {
+  return new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP", maximumFractionDigits: 0 }).format(n);
+}
+
+function formatGiftAmount(v: number | null | undefined): string {
+  if (v == null || Number.isNaN(Number(v))) return "—";
+  return formatPhp(Number(v));
+}
+
 export default function DonorsPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [search, setSearch] = useState("");
-  const [allDonors, setAllDonors] = useState<SupporterRow[] | null>(null);
+  const [allDonors, setAllDonors] = useState<SupporterListRow[] | null>(null);
+  const [listSummary, setListSummary] = useState<{ ytdDonationTotal: number; avgMonthlyYtd: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -82,7 +82,9 @@ export default function DonorsPage() {
       .supportersList()
       .then((res) => {
         if (!res.success) throw new Error(res.message || "Failed to load supporters");
-        setAllDonors(res.data as SupporterRow[]);
+        const payload = res.data as SupportersListPayload;
+        setAllDonors(payload.supporters);
+        setListSummary(payload.summary);
       })
       .catch((err: Error) => setError(err.message ?? "Failed to load"))
       .finally(() => setLoading(false));
@@ -142,8 +144,10 @@ export default function DonorsPage() {
               <DollarSign className="h-5 w-5 text-success" />
             </div>
             <div>
-              <p className="text-2xl font-heading font-bold">—</p>
-              <p className="text-sm text-muted-foreground">This Year</p>
+              <p className="text-2xl font-heading font-bold">
+                {listSummary ? formatPhp(Number(listSummary.ytdDonationTotal)) : "—"}
+              </p>
+              <p className="text-sm text-muted-foreground">This Year (YTD)</p>
             </div>
           </CardContent>
         </Card>
@@ -153,8 +157,10 @@ export default function DonorsPage() {
               <DollarSign className="h-5 w-5 text-warning" />
             </div>
             <div>
-              <p className="text-2xl font-heading font-bold">—</p>
-              <p className="text-sm text-muted-foreground">Avg. Monthly</p>
+              <p className="text-2xl font-heading font-bold">
+                {listSummary ? formatPhp(Number(listSummary.avgMonthlyYtd)) : "—"}
+              </p>
+              <p className="text-sm text-muted-foreground">Avg. monthly (YTD ÷ month)</p>
             </div>
           </CardContent>
         </Card>
@@ -202,8 +208,12 @@ export default function DonorsPage() {
                   <td className="p-4">
                     <Badge variant={typeColors[d.supporterType] ?? "outline"}>{d.supporterType}</Badge>
                   </td>
-                  <td className="p-4 text-sm">—</td>
-                  <td className="p-4 text-sm hidden md:table-cell">—</td>
+                  <td className="p-4 text-sm">{formatGiftAmount(d.latestAmount)}</td>
+                  <td className="p-4 text-sm hidden md:table-cell">
+                    {d.donationCount > 0
+                      ? `${formatPhp(Number(d.totalLifetimeValue))} · ${d.donationCount}`
+                      : "—"}
+                  </td>
                   <td className="p-4 text-sm text-muted-foreground hidden lg:table-cell">{d.acquisitionChannel || "—"}</td>
                   <td className="p-4 text-sm text-muted-foreground hidden lg:table-cell">{d.firstDonationDate ?? "—"}</td>
                 </tr>
