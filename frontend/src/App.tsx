@@ -22,6 +22,7 @@ import ProcessRecordingPage from "@/pages/app/ProcessRecordingPage";
 import HomeVisitsPage from "@/pages/app/HomeVisitsPage";
 import CaseConferencesPage from "@/pages/app/CaseConferencesPage";
 import DonorsPage from "@/pages/app/DonorsPage";
+import SupporterProfilePage from "@/pages/app/SupporterProfilePage";
 import ReportsPage from "@/pages/app/ReportsPage";
 import NewIntakePage from "@/pages/app/NewIntakePage";
 import NewVisitPage from "@/pages/app/NewVisitPage";
@@ -64,6 +65,7 @@ const App = () => (
               <Route path="home-visits" element={<HomeVisitsPage />} />
               <Route path="case-conferences" element={<CaseConferencesPage />} />
               <Route path="donors" element={<DonorsPage />} />
+              <Route path="donors/:supporterId" element={<SupporterProfilePage />} />
               <Route path="reports" element={<ReportsPage />} />
               <Route path="intake/new" element={<NewIntakePage />} />
               <Route path="visits/new" element={<NewVisitPage />} />
