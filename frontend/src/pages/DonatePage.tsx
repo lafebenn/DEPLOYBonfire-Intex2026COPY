@@ -199,8 +199,8 @@ export default function DonatePage() {
               Help keep the fire burning
             </h1>
             <p className="text-muted-foreground text-lg max-w-2xl mx-auto leading-relaxed">
-              Your gift supports safe housing, counseling, education, and
-              reintegration—so survivors can heal in a place that feels like home.
+              Your gift supports safe housing, counseling, education, and reintegration, so survivors can heal in a place
+              that feels like home.
             </p>
           </div>
 
@@ -349,7 +349,7 @@ export default function DonatePage() {
                           aria-pressed={state.isAnonymous}
                         >
                           <p className="font-medium">
-                            {state.isAnonymous ? "Yes — anonymous" : "No — show my name"}
+                            {state.isAnonymous ? "Yes (anonymous)" : "No (show my name)"}
                           </p>
                           <p className="text-sm text-muted-foreground mt-1">
                             We’ll still email your receipt.

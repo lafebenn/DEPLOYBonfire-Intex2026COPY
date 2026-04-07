@@ -1,6 +1,6 @@
 /**
  * Demo aggregates for Social Media Insights (INTEX).
- * Shaped like `social_media_posts` + rollups — replace with API when wired to DB.
+ * Shaped like `social_media_posts` + rollups - replace with API when wired to DB.
  */
 
 export type PlatformRow = {
@@ -86,7 +86,7 @@ export const MOCK_CONTENT_TYPES: ContentTypeRow[] = [
     avgLikes: 420,
     avgEngagementRate: 0.038,
     donationReferrals: 52,
-    notes: "Fewer posts but strongest donation linkage — prioritize during campaigns.",
+    notes: "Fewer posts but strongest donation linkage. Prioritize during campaigns.",
   },
   {
     postType: "ImpactStory",
@@ -147,9 +147,9 @@ export const MOCK_BEST_HOURS: HourPart[] = [
 ];
 
 export const MOCK_STRATEGY_RECOMMENDATIONS: string[] = [
-  "Weight **fundraising appeals** and **campaign** posts around predictable windows (evenings, Thu–Sun) rather than spreading thin.",
-  "Treat **TikTok** as awareness: high engagement does not always mean donations — add trackable links and test CTAs.",
-  "**WhatsApp** forwards show strong conversion in this demo — consider a light monthly “insider update” with consent.",
+  "Weight **fundraising appeals** and **campaign** posts around predictable windows (evenings, Thu-Sun) rather than spreading thin.",
+  "Treat **TikTok** as awareness: high engagement does not always mean donations. Add trackable links and test CTAs.",
+  "**WhatsApp** forwards show strong conversion in this demo. Consider a light monthly “insider update” with consent.",
   "Compare **likes vs. donation referrals** per post type weekly; rotate away from formats that only inflate vanity metrics.",
-  "Post **consistently** (target 12–16 posts/week) but batch-create content in themed weeks to reduce founder burnout.",
+  "Post **consistently** (target 12-16 posts/week) but batch-create content in themed weeks to reduce founder burnout.",
 ];

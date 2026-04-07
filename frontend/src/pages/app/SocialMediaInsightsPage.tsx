@@ -86,7 +86,7 @@ export default function SocialMediaInsightsPage() {
           </h2>
           <p className="text-muted-foreground text-sm mt-2 max-w-2xl leading-relaxed">
             Bonfire helps your team see what actually moves <strong>donations</strong> versus{" "}
-            <strong>engagement alone</strong> — so you can post with purpose on a lean schedule.
+            <strong>engagement alone</strong>, so you can post with purpose on a lean schedule.
             This view will connect to your operational database when APIs are wired; numbers below are
             illustrative.
           </p>
@@ -138,7 +138,7 @@ export default function SocialMediaInsightsPage() {
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-heading font-bold">{MOCK_SOCIAL_KPIS.postsPerWeek}</p>
-            <p className="text-xs text-muted-foreground mt-1">Posts per week (avg.) · aim 12–16</p>
+            <p className="text-xs text-muted-foreground mt-1">Posts per week (avg.). Aim 12-16.</p>
           </CardContent>
         </Card>
       </div>
@@ -148,7 +148,7 @@ export default function SocialMediaInsightsPage() {
           <CardHeader>
             <CardTitle className="font-heading text-lg">Platform performance</CardTitle>
             <p className="text-sm text-muted-foreground font-normal">
-              Where attention converts to <strong>donations</strong> — not only likes.
+              Where attention converts to <strong>donations</strong>, not only likes.
             </p>
           </CardHeader>
           <CardContent className="overflow-x-auto">
@@ -179,7 +179,7 @@ export default function SocialMediaInsightsPage() {
               </TableBody>
             </Table>
             <p className="text-xs text-muted-foreground mt-3">
-              Top platform by gifts (demo): <strong>{MOCK_SOCIAL_KPIS.topPlatform}</strong> — validate with your next campaign UTM tags.
+              Top platform by gifts (demo): <strong>{MOCK_SOCIAL_KPIS.topPlatform}</strong>. Validate with your next campaign UTM tags.
             </p>
           </CardContent>
         </Card>
@@ -216,7 +216,7 @@ export default function SocialMediaInsightsPage() {
             Content type: engagement vs. donations
           </CardTitle>
           <p className="text-sm text-muted-foreground font-normal">
-            Answers “what should we post?” — compare vanity metrics to <strong>donation referrals</strong> by post type.
+            Answers “what should we post?”. Compare vanity metrics to <strong>donation referrals</strong> by post type.
           </p>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -246,7 +246,7 @@ export default function SocialMediaInsightsPage() {
           <CardHeader>
             <CardTitle className="font-heading text-lg">Best days to post</CardTitle>
             <p className="text-sm text-muted-foreground font-normal">
-              Relative composite score (reach + engagement + referrals) — demo.
+              Relative composite score (reach + engagement + referrals). Demo.
             </p>
           </CardHeader>
           <CardContent className="space-y-3">
