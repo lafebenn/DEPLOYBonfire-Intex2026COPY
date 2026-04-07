@@ -9,6 +9,17 @@
 node_modules/
 publish/
 publish.zip
-package-lock.json
 backend/Bonfire.API/bin/
 backend/Bonfire.API/obj/
+
+# Frontend build output
+frontend/dist/
+
+# Logs / coverage / reports
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+coverage/
+playwright-report/
+test-results/
