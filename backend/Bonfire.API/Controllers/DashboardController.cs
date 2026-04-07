@@ -1,6 +1,7 @@
 using Bonfire.API.Data;
 using Bonfire.API.Infrastructure;
 using Bonfire.API.Models;
+using Bonfire.API.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -104,6 +105,77 @@ public class DashboardController : ControllerBase
             })
             .ToListAsync();
 
+        var today = DateOnly.FromDateTime(now);
+        var monthAgo = today.AddDays(-30);
+
+        var activeResidentRows = await _db.Residents.AsNoTracking()
+            .Where(r => r.CaseStatus == "Active")
+            .Select(r => new ResidentAttentionScoreComputer.ActiveResidentRow
+            {
+                ResidentId = r.ResidentId,
+                CaseControlNo = r.CaseControlNo,
+                InternalCode = r.InternalCode,
+                CurrentRiskLevel = r.CurrentRiskLevel,
+                SafehouseName = r.Safehouse.Name
+            })
+            .ToListAsync();
+
+        var activeIds = activeResidentRows.Select(r => r.ResidentId).ToList();
+        var activeIdSet = activeIds.ToHashSet();
+
+        var mlByResident = LatestPerEntity(preds, "ResidentRiskFlag", "Resident")
+            .ToDictionary(p => p.EntityId, p => p.Score);
+
+        List<ProcessRecording> procRows = new();
+        List<EducationRecord> eduRows = new();
+        List<HealthWellbeingRecord> healthRows = new();
+        Dictionary<int, int> incident30 = new();
+
+        if (activeIdSet.Count > 0)
+        {
+            procRows = await _db.ProcessRecordings.AsNoTracking()
+                .Where(p => activeIdSet.Contains(p.ResidentId))
+                .ToListAsync();
+            eduRows = await _db.EducationRecords.AsNoTracking()
+                .Where(e => activeIdSet.Contains(e.ResidentId))
+                .ToListAsync();
+            healthRows = await _db.HealthWellbeingRecords.AsNoTracking()
+                .Where(h => activeIdSet.Contains(h.ResidentId))
+                .ToListAsync();
+            var incGroups = await _db.IncidentReports.AsNoTracking()
+                .Where(i => activeIdSet.Contains(i.ResidentId) && i.IncidentDate >= monthAgo)
+                .GroupBy(i => i.ResidentId)
+                .Select(g => new { ResidentId = g.Key, Count = g.Count() })
+                .ToListAsync();
+            incident30 = incGroups.ToDictionary(x => x.ResidentId, x => x.Count);
+        }
+
+        var attentionRanked = ResidentAttentionScoreComputer.ComputeForActiveResidents(
+            today,
+            activeResidentRows,
+            procRows,
+            eduRows,
+            healthRows,
+            incident30,
+            mlByResident
+        );
+
+        var highAttentionResidents = attentionRanked
+            .Take(10)
+            .Select(a => new
+            {
+                a.ResidentId,
+                a.DisplayName,
+                a.CaseControlNo,
+                a.InternalCode,
+                a.SafehouseName,
+                a.CurrentRiskLevel,
+                compositeScore = a.CompositeScore,
+                flameLevel = a.FlameLevel,
+                factors = a.Factors
+            })
+            .ToList();
+
         return Ok(ApiResponse<object>.Ok(new
         {
             activeResidentCount,
@@ -113,7 +185,8 @@ public class DashboardController : ControllerBase
             residentsAtRisk,
             safehouseOccupancy,
             recentDonations,
-            flaggedResidents = residentsAtRisk
+            flaggedResidents = residentsAtRisk,
+            highAttentionResidents
         }));
     }
 
