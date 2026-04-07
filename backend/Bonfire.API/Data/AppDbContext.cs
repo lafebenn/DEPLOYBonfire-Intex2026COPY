@@ -144,7 +144,7 @@ public class AppDbContext : IdentityDbContext<AppUser>
             e.HasOne(x => x.Resident)
                 .WithMany(r => r.IncidentReports)
                 .HasForeignKey(x => x.ResidentId)
-                .OnDelete(DeleteBehavior.Restrict);
+                .OnDelete(DeleteBehavior.Cascade);
 
             e.HasOne(x => x.Safehouse)
                 .WithMany(s => s.IncidentReports)

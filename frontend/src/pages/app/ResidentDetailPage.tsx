@@ -1,20 +1,34 @@
-import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useCallback, useEffect, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   ArrowLeft,
   Calendar,
   FileText,
   Home,
+  Pencil,
   Shield,
+  Trash2,
   User,
   Users,
   AlertTriangle,
 } from "lucide-react";
 import { residentsApi } from "@/lib/api";
+import { ResidentCaseEditDialog } from "@/components/ResidentCaseEditDialog";
+import { residentGetToWritePayload, type ResidentCaseWrite } from "@/lib/residentCaseWrite";
+import { useToast } from "@/hooks/use-toast";
 
 const riskVariant: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
   Low: "secondary",
@@ -107,21 +121,24 @@ function subcategoriesFrom(r: ResidentApi) {
 export default function ResidentDetailPage() {
   const { residentId } = useParams<{ residentId: string }>();
   const idNum = residentId ? Number(residentId) : NaN;
+  const navigate = useNavigate();
+  const { toast } = useToast();
 
   const [resident, setResident] = useState<ResidentApi | null>(null);
+  const [writeSnapshot, setWriteSnapshot] = useState<ResidentCaseWrite | null>(null);
   const [recordings, setRecordings] = useState<ProcessRec[]>([]);
   const [visits, setVisits] = useState<HomeVisit[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notFound, setNotFound] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteBusy, setDeleteBusy] = useState(false);
 
-  useEffect(() => {
-    if (!residentId || Number.isNaN(idNum)) {
-      setLoading(false);
-      setNotFound(true);
-      return;
-    }
-
+  const loadResident = useCallback(() => {
+    if (!residentId || Number.isNaN(idNum)) return;
+    setLoading(true);
+    setError(null);
     Promise.all([
       residentsApi.get(idNum),
       residentsApi.processRecordings(idNum),
@@ -133,13 +150,44 @@ export default function ResidentDetailPage() {
           else throw new Error(res.message || "Failed to load resident");
           return;
         }
+        setNotFound(false);
+        const data = res.data as Record<string, unknown>;
         setResident(res.data as ResidentApi);
+        setWriteSnapshot(residentGetToWritePayload(data));
         if (recRes.success) setRecordings(recRes.data as ProcessRec[]);
         if (visRes.success) setVisits(visRes.data as HomeVisit[]);
       })
       .catch((err: Error) => setError(err.message ?? "Failed to load"))
       .finally(() => setLoading(false));
   }, [residentId, idNum]);
+
+  useEffect(() => {
+    if (!residentId || Number.isNaN(idNum)) {
+      setLoading(false);
+      setNotFound(true);
+      return;
+    }
+    loadResident();
+  }, [residentId, idNum, loadResident]);
+
+  async function handleDelete() {
+    setDeleteBusy(true);
+    try {
+      const res = await residentsApi.delete(idNum);
+      if (!res.success) throw new Error(res.message || "Delete failed");
+      toast({ title: "Case deleted", description: "This resident was removed from the database." });
+      setDeleteOpen(false);
+      navigate("/app/caseload");
+    } catch (e: unknown) {
+      toast({
+        variant: "destructive",
+        title: "Could not delete",
+        description: e instanceof Error ? e.message : "Delete failed",
+      });
+    } finally {
+      setDeleteBusy(false);
+    }
+  }
 
   if (loading) return <div className="p-8 text-muted-foreground">Loading...</div>;
   if (error)
@@ -222,6 +270,14 @@ export default function ResidentDetailPage() {
           </div>
 
           <div className="flex flex-wrap gap-2 lg:justify-end">
+            <Button variant="default" size="sm" onClick={() => setEditOpen(true)} disabled={!writeSnapshot}>
+              <Pencil className="h-4 w-4 mr-2" />
+              Edit case
+            </Button>
+            <Button variant="destructive" size="sm" onClick={() => setDeleteOpen(true)}>
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete case
+            </Button>
             <Button variant="outline" size="sm" asChild>
               <Link to={`/app/recordings/new?residentId=${resident.residentId}`}>
                 <FileText className="h-4 w-4 mr-2" />
@@ -414,6 +470,35 @@ export default function ResidentDetailPage() {
           </p>
         </CardContent>
       </Card>
+
+      <ResidentCaseEditDialog
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        residentId={resident.residentId}
+        initial={writeSnapshot}
+        onSaved={loadResident}
+      />
+
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this case?</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <span className="block">
+                This permanently removes <strong>{displayName}</strong> ({resident.caseControlNo}) and related records
+                that cascade from the database (process recordings, visits, education, health, plans, incidents).
+              </span>
+              <span className="block text-destructive font-medium">This cannot be undone.</span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteBusy}>Cancel</AlertDialogCancel>
+            <Button variant="destructive" disabled={deleteBusy} onClick={() => void handleDelete()}>
+              {deleteBusy ? "Deleting…" : "Delete permanently"}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
