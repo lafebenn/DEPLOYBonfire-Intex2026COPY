@@ -194,6 +194,12 @@ export const donorsApi = {
     const s = q.toString();
     return request<unknown[]>(`/api/supporters${s ? `?${s}` : ""}`);
   },
+  priorityTargets: (params?: { limit?: number }) => {
+    const q = new URLSearchParams();
+    if (params?.limit) q.set("limit", String(params.limit));
+    const s = q.toString();
+    return request<unknown[]>(`/api/supporters/priority-targets${s ? `?${s}` : ""}`);
+  },
   supporterGet: (id: number) => request<unknown>(`/api/supporters/${id}`),
   supporterCreate: (body: unknown) =>
     request<{ id: number }>("/api/supporters", { method: "POST", body: JSON.stringify(body) }),
@@ -244,6 +250,7 @@ export const mlApi = {
     request<{ id: number }>("/api/ml/predictions", { method: "POST", body: JSON.stringify(body) }),
   latestForEntity: (entityType: string, entityId: number) =>
     request<unknown[]>(`/api/ml/predictions/${encodeURIComponent(entityType)}/${entityId}`),
+  refreshSupporters: () => request<{ queued: boolean }>("/api/ml/refresh/supporters", { method: "POST" }),
 };
 
 /** --- Impact snapshots (public) --- */

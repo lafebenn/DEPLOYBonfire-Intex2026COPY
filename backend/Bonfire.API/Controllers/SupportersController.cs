@@ -15,11 +15,13 @@ public class SupportersController : ControllerBase
 {
     private readonly AppDbContext _db;
     private readonly SanitizerService _s;
+    private readonly MlService _ml;
 
-    public SupportersController(AppDbContext db, SanitizerService s)
+    public SupportersController(AppDbContext db, SanitizerService s, MlService ml)
     {
         _db = db;
         _s = s;
+        _ml = ml;
     }
 
     private int? LinkedSupporterId()
@@ -61,6 +63,120 @@ public class SupportersController : ControllerBase
         var s = await _db.Supporters.AsNoTracking().FirstOrDefaultAsync(x => x.SupporterId == id);
         if (s == null) return NotFound(ApiResponse<object>.Fail("Not found"));
         return Ok(ApiResponse<object>.Ok(s));
+    }
+
+    [HttpGet("priority-targets")]
+    [Authorize(Roles = "Admin,Staff")]
+    public async Task<ActionResult<ApiResponse<object>>> PriorityTargets([FromQuery] int limit = 15)
+    {
+        limit = Math.Clamp(limit, 1, 50);
+
+        var onlyTypes = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "MonetaryDonor",
+            "InKindDonor",
+            "Volunteer",
+            "SkillsContributor",
+            "SocialMediaAdvocate"
+        };
+
+        var cutoff = DateTime.UtcNow.AddHours(-6);
+        var cached = await _db.MlPredictions.AsNoTracking()
+            .Where(p =>
+                p.PredictionType == "DonorLapseRisk" &&
+                p.EntityType == "Supporter" &&
+                (!p.ExpiresAt.HasValue || p.ExpiresAt > cutoff))
+            .GroupBy(p => p.EntityId)
+            .Select(g => g.OrderByDescending(x => x.PredictedAt).First())
+            .ToListAsync();
+
+        var cachedBySupporterId = cached.ToDictionary(x => x.EntityId, x => x);
+
+        var supporters = await _db.Supporters.AsNoTracking()
+            .Where(s => s.Status == "Active" && onlyTypes.Contains(s.SupporterType))
+            .OrderBy(s => s.DisplayName)
+            .Select(s => new
+            {
+                s.SupporterId,
+                s.DisplayName,
+                s.Email,
+                s.SupporterType,
+                s.AcquisitionChannel
+            })
+            .Take(400)
+            .ToListAsync();
+
+        var supporterIds = supporters.Select(s => s.SupporterId).ToList();
+
+        var donationStats = await _db.Donations.AsNoTracking()
+            .Where(d => supporterIds.Contains(d.SupporterId))
+            .GroupBy(d => d.SupporterId)
+            .Select(g => new
+            {
+                SupporterId = g.Key,
+                DonationCount = g.Count(),
+                TotalLifetimeValue = g.Sum(x => x.Amount ?? x.EstimatedValue ?? 0m),
+                LastDonationDate = g.Max(x => (DateOnly?)x.DonationDate)
+            })
+            .ToListAsync();
+
+        var statsById = donationStats.ToDictionary(x => x.SupporterId, x => x);
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+
+        var results = new List<PriorityTargetDto>(supporters.Count);
+        foreach (var s in supporters)
+        {
+            var score = cachedBySupporterId.TryGetValue(s.SupporterId, out var p)
+                ? p.Score
+                : await _ml.GetDonorLapseRiskAsync(s.SupporterId);
+            statsById.TryGetValue(s.SupporterId, out var st);
+            var daysSinceLast = st?.LastDonationDate == null ? (int?)null : (today.DayNumber - st.LastDonationDate.Value.DayNumber);
+
+            results.Add(new PriorityTargetDto
+            {
+                SupporterId = s.SupporterId,
+                DisplayName = s.DisplayName,
+                Email = s.Email,
+                SupporterType = s.SupporterType,
+                AcquisitionChannel = s.AcquisitionChannel,
+                LapseRiskScore = score,
+                RiskTier = ToRiskTier(score),
+                DonationCount = st?.DonationCount ?? 0,
+                TotalLifetimeValue = st?.TotalLifetimeValue ?? 0m,
+                LastDonationDate = st?.LastDonationDate,
+                DaysSinceLastDonation = daysSinceLast
+            });
+        }
+
+        var ordered = results
+            .OrderByDescending(x => x.LapseRiskScore)
+            .ThenByDescending(x => x.TotalLifetimeValue)
+            .Take(limit)
+            .ToList();
+
+        return Ok(ApiResponse<object>.Ok(ordered));
+    }
+
+    public sealed class PriorityTargetDto
+    {
+        public int SupporterId { get; set; }
+        public string DisplayName { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public string SupporterType { get; set; } = string.Empty;
+        public string AcquisitionChannel { get; set; } = string.Empty;
+        public decimal LapseRiskScore { get; set; }
+        public string RiskTier { get; set; } = string.Empty;
+        public int DonationCount { get; set; }
+        public decimal TotalLifetimeValue { get; set; }
+        public DateOnly? LastDonationDate { get; set; }
+        public int? DaysSinceLastDonation { get; set; }
+    }
+
+    private static string ToRiskTier(decimal score)
+    {
+        if (score >= 0.70m) return "High";
+        if (score >= 0.40m) return "Medium";
+        return "Low";
     }
 
     public class SupporterWriteDto
