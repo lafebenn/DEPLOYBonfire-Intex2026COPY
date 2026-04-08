@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Users, Heart, TrendingUp, Shield } from "lucide-react";
+import { Users, Handshake, TrendingUp, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import textileBg from "@/assets/textile_bg.png";
@@ -18,16 +18,11 @@ type ImpactData = {
     activeResidents: number;
     residentsServedTotal: number;
     supportersTotal: number;
-    totalDonationsYtd: number;
     counselingSessionsYtd: number;
     homeVisitsYtd: number;
   };
   latestPublishedSnapshot: ImpactSnapshot | null;
 };
-
-function formatPhp(n: number): string {
-  return new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP", maximumFractionDigits: 0 }).format(n);
-}
 
 export default function ImpactPage() {
   const [data, setData] = useState<ImpactData | null>(null);
@@ -49,7 +44,7 @@ export default function ImpactPage() {
     const agg = data?.aggregateMetrics;
     const served = agg?.residentsServedTotal ?? 0;
     const active = agg?.activeResidents ?? 0;
-    const ytd = agg?.totalDonationsYtd ?? 0;
+    const supporters = agg?.supportersTotal ?? 0;
     const sessions = agg?.counselingSessionsYtd ?? 0;
     const visits = agg?.homeVisitsYtd ?? 0;
     return [
@@ -66,10 +61,10 @@ export default function ImpactPage() {
         icon: Shield,
       },
       {
-        label: "Total donations this year",
-        value: formatPhp(Number(ytd)),
-        change: "Year-to-date total from operational data (PHP).",
-        icon: Heart,
+        label: "Supporters in our community",
+        value: supporters.toLocaleString(),
+        change: "Registered donors, volunteers, and partners in our system—scale of the community behind the mission.",
+        icon: Handshake,
       },
       {
         label: "Counseling sessions & home visits (YTD)",

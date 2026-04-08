@@ -501,10 +501,6 @@ public class DashboardController : ControllerBase
         var residentsServedTotal = await _db.Residents.CountAsync();
         var supportersTotal = await _db.Supporters.CountAsync();
 
-        var totalDonationsYtd = await _db.Donations
-            .Where(d => d.DonationDate >= ytdStart)
-            .SumAsync(d => d.Amount ?? d.EstimatedValue ?? 0m);
-
         var counselingSessionsYtd = await _db.ProcessRecordings.CountAsync(p => p.SessionDate >= ytdStart);
         var homeVisitsYtd = await _db.HomeVisitations.CountAsync(v => v.VisitDate >= ytdStart);
 
@@ -516,7 +512,6 @@ public class DashboardController : ControllerBase
                 activeResidents,
                 residentsServedTotal,
                 supportersTotal,
-                totalDonationsYtd,
                 counselingSessionsYtd,
                 homeVisitsYtd
             }
