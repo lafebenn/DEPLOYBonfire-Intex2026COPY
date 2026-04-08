@@ -138,8 +138,8 @@ public class DashboardController : ControllerBase
                 ResidentId = r.ResidentId,
                 CaseControlNo = r.CaseControlNo,
                 InternalCode = r.InternalCode,
-                CurrentRiskLevel = r.CurrentRiskLevel,
-                SafehouseName = r.Safehouse.Name
+                CurrentRiskLevel = r.CurrentRiskLevel ?? "",
+                SafehouseName = r.Safehouse != null ? r.Safehouse.Name : ""
             })
             .ToListAsync();
 
