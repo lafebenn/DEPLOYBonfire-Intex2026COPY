@@ -26,12 +26,6 @@ public class PredictionController : ControllerBase
     private readonly IConfiguration _configuration;
     private readonly ILogger<PredictionController> _logger;
 
-    private static readonly JsonSerializerOptions JsonOpts = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        PropertyNameCaseInsensitive = true
-    };
-
     public PredictionController(
         AppDbContext db,
         MlService ml,
@@ -143,58 +137,16 @@ public class PredictionController : ControllerBase
     [HttpGet("resident-risk/{residentId:int}")]
     public async Task<IActionResult> GetResidentRisk(int residentId, CancellationToken cancellationToken)
     {
-        var baseUrl = _configuration["ML_API_URL"]?.Trim().TrimEnd('/');
-        if (string.IsNullOrWhiteSpace(baseUrl))
-        {
-            _logger.LogWarning("ML_API_URL is not configured");
-            return StatusCode(503, new { error = "ML API is not configured on the server." });
-        }
+        if (!EnsureMlConfigured(out var reject)) return reject!;
 
-        var r = await _db.Residents.AsNoTracking().FirstOrDefaultAsync(x => x.ResidentId == residentId, cancellationToken);
-        if (r == null)
+        var row = await MlProxyPayloadMappers.MapResidentRiskRowAsync(_db, residentId, cancellationToken);
+        if (row == null)
             return NotFound(new { error = "Resident not found" });
 
-        var recentIncidents = await _db.IncidentReports.CountAsync(
-            i => i.ResidentId == residentId && i.IncidentDate >= DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-90)),
-            cancellationToken);
-        var lastSession = await _db.ProcessRecordings.AsNoTracking()
-            .Where(p => p.ResidentId == residentId)
-            .OrderByDescending(p => p.SessionDate)
-            .Select(p => (DateOnly?)p.SessionDate)
-            .FirstOrDefaultAsync(cancellationToken);
-        var daysSinceSession = lastSession == null
-            ? 999
-            : DateOnly.FromDateTime(DateTime.UtcNow).DayNumber - lastSession.Value.DayNumber;
-        const decimal avgEmotional = 0.5m;
-        var edu = await _db.EducationRecords.AsNoTracking()
-            .Where(e => e.ResidentId == residentId)
-            .OrderByDescending(e => e.RecordDate)
-            .Select(e => (decimal?)e.ProgressPercent)
-            .FirstOrDefaultAsync(cancellationToken) ?? 0;
-        var health = await _db.HealthWellbeingRecords.AsNoTracking()
-            .Where(h => h.ResidentId == residentId)
-            .OrderByDescending(h => h.RecordDate)
-            .Select(h => (decimal?)h.GeneralHealthScore)
-            .FirstOrDefaultAsync(cancellationToken) ?? 0;
-        var openIv = await _db.InterventionPlans.CountAsync(
-            p => p.ResidentId == residentId && p.Status != "Closed",
-            cancellationToken);
-
-        var featureRow = new
-        {
-            residentId,
-            currentRiskLevel = r.CurrentRiskLevel,
-            recentIncidentCount = recentIncidents,
-            daysSinceLastSession = daysSinceSession,
-            avgEmotionalStateScore = avgEmotional,
-            educationProgress = edu,
-            healthScore = health,
-            openInterventionCount = openIv
-        };
-
+        var payload = new ResidentRiskPredictPayload { Residents = [row] };
         return await ProxyMlPredictAsync(
             "v1/resident-risk/predict",
-            new[] { featureRow },
+            payload,
             cancellationToken,
             "resident-risk",
             residentId);
@@ -206,42 +158,71 @@ public class PredictionController : ControllerBase
     [HttpGet("donor-lapse/{supporterId:int}")]
     public async Task<IActionResult> GetDonorLapse(int supporterId, CancellationToken cancellationToken)
     {
-        var baseUrl = _configuration["ML_API_URL"]?.Trim().TrimEnd('/');
-        if (string.IsNullOrWhiteSpace(baseUrl))
-        {
-            _logger.LogWarning("ML_API_URL is not configured");
-            return StatusCode(503, new { error = "ML API is not configured on the server." });
-        }
+        if (!EnsureMlConfigured(out var reject)) return reject!;
 
-        var s = await _db.Supporters.AsNoTracking().FirstOrDefaultAsync(x => x.SupporterId == supporterId, cancellationToken);
-        if (s == null)
+        var row = await MlProxyPayloadMappers.MapDonorLapseRowAsync(_db, supporterId, cancellationToken);
+        if (row == null)
             return NotFound(new { error = "Supporter not found" });
 
-        var donations = await _db.Donations.AsNoTracking()
-            .Where(d => d.SupporterId == supporterId)
-            .ToListAsync(cancellationToken);
-        var last = donations.OrderByDescending(d => d.DonationDate).FirstOrDefault();
-        var daysSince = last == null
-            ? 999
-            : DateOnly.FromDateTime(DateTime.UtcNow).DayNumber - last.DonationDate.DayNumber;
-
-        var featureRow = new
-        {
-            supporterId,
-            daysSinceLastDonation = daysSince,
-            donationCount = donations.Count,
-            totalLifetimeValue = donations.Sum(d => d.Amount ?? d.EstimatedValue ?? 0m),
-            isRecurring = donations.Any(d => d.IsRecurring),
-            acquisitionChannel = s.AcquisitionChannel,
-            donationType = donations.FirstOrDefault()?.DonationType ?? ""
-        };
-
+        var payload = new DonorLapsePredictPayload { Supporters = [row] };
         return await ProxyMlPredictAsync(
             "v1/donor-lapse/predict",
-            new[] { featureRow },
+            payload,
             cancellationToken,
             "donor-lapse",
             supporterId);
+    }
+
+    /// <summary>
+    /// Donor giving model (supporter profile features). See <see cref="DonorGivingMlRow"/> for TODO on Python alignment.
+    /// </summary>
+    [HttpGet("donor-giving/{donorId:int}")]
+    public async Task<IActionResult> GetDonorGiving(int donorId, CancellationToken cancellationToken)
+    {
+        if (!EnsureMlConfigured(out var reject)) return reject!;
+
+        var row = await MlProxyPayloadMappers.MapDonorGivingRowAsync(_db, donorId, cancellationToken);
+        if (row == null)
+            return NotFound(new { error = "Supporter not found" });
+
+        var payload = new DonorGivingPredictPayload { Supporters = [row] };
+        return await ProxyMlPredictAsync(
+            "v1/donor-giving/predict",
+            payload,
+            cancellationToken,
+            "donor-giving",
+            donorId);
+    }
+
+    [HttpGet("social-media/{postId:int}")]
+    public async Task<IActionResult> GetSocialMediaPrediction(int postId, CancellationToken cancellationToken)
+    {
+        if (!EnsureMlConfigured(out var reject)) return reject!;
+
+        var p = await _db.SocialMediaPosts.AsNoTracking().FirstOrDefaultAsync(x => x.PostId == postId, cancellationToken);
+        var row = MlProxyPayloadMappers.MapSocialMediaRow(p);
+        if (row == null)
+            return NotFound(new { error = "Post not found" });
+
+        var payload = new SocialMediaPredictPayload { Posts = [row] };
+        return await ProxyMlPredictAsync(
+            "v1/social-media/predict",
+            payload,
+            cancellationToken,
+            "social-media",
+            postId);
+    }
+
+    private bool EnsureMlConfigured(out IActionResult? reject)
+    {
+        reject = null;
+        var baseUrl = _configuration["ML_API_URL"]?.Trim().TrimEnd('/');
+        if (!string.IsNullOrWhiteSpace(baseUrl))
+            return true;
+
+        _logger.LogWarning("ML_API_URL is not configured");
+        reject = StatusCode(503, new { error = "ML API is not configured on the server." });
+        return false;
     }
 
     private async Task<IActionResult> ProxyMlPredictAsync(
@@ -251,7 +232,7 @@ public class PredictionController : ControllerBase
         string proxyContext,
         int entityId)
     {
-        var json = JsonSerializer.Serialize(payload, JsonOpts);
+        var json = JsonSerializer.Serialize(payload, MlProxyJson.SerializerOptions);
         using var content = new StringContent(json, Encoding.UTF8, "application/json");
         content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
 

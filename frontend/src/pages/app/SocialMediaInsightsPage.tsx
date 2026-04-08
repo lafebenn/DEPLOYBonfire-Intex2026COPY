@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { socialMediaApi } from "@/lib/api";
+import { fetchSocialMediaPrediction, pickMlProxyScore, socialMediaApi } from "@/lib/api";
 import { ExternalLink, Lightbulb, Megaphone, Share2, Sparkles, TrendingUp } from "lucide-react";
 
 function formatPhp(n: number) {
@@ -86,6 +86,10 @@ export default function SocialMediaInsightsPage() {
   const [preset, setPreset] = useState<DatePreset>("last30");
   const [customFrom, setCustomFrom] = useState<string>("");
   const [customTo, setCustomTo] = useState<string>("");
+  const [mlPostId, setMlPostId] = useState<number | null>(null);
+  const [mlScore, setMlScore] = useState<number | null>(null);
+  const [mlLoading, setMlLoading] = useState(false);
+  const [mlError, setMlError] = useState<string | null>(null);
 
   const queryParams = useMemo(() => {
     const now = new Date();
@@ -156,7 +160,43 @@ export default function SocialMediaInsightsPage() {
   const bestDays = (data?.bestDays ?? []) as any[];
   const bestHours = (data?.bestHours ?? []) as any[];
   const insights = (data?.insights ?? []) as string[];
-  const topPosts = (data?.topPosts ?? []) as any[];
+  const topPosts = useMemo(() => (data?.topPosts ?? []) as any[], [data?.topPosts]);
+
+  useEffect(() => {
+    if (!topPosts.length) {
+      setMlPostId(null);
+      return;
+    }
+    const ids = topPosts.map((p) => Number(p.postId)).filter((n) => Number.isFinite(n));
+    if (!ids.length) {
+      setMlPostId(null);
+      return;
+    }
+    setMlPostId((prev) => (prev != null && ids.includes(prev) ? prev : ids[0]!));
+  }, [topPosts]);
+
+  useEffect(() => {
+    if (mlPostId == null) {
+      setMlScore(null);
+      return;
+    }
+    let cancelled = false;
+    setMlLoading(true);
+    setMlError(null);
+    fetchSocialMediaPrediction(mlPostId)
+      .then((raw) => {
+        if (!cancelled) setMlScore(pickMlProxyScore(raw));
+      })
+      .catch((e: unknown) => {
+        if (!cancelled) setMlError(e instanceof Error ? e.message : "ML request failed");
+      })
+      .finally(() => {
+        if (!cancelled) setMlLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [mlPostId]);
 
   const maxDay = Math.max(...bestDays.map((d) => Number(d.score) || 0), 0.01);
   const maxHour = Math.max(...bestHours.map((h) => Number(h.score) || 0), 0.01);
@@ -461,18 +501,50 @@ export default function SocialMediaInsightsPage() {
         </Card>
       </div>
 
-      <Card className="border-dashed">
+      <Card>
         <CardHeader>
           <CardTitle className="font-heading text-lg flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-primary" />
-            ML recommendations (coming soon)
+            Social post ML score (via API)
           </CardTitle>
           <p className="text-sm text-muted-foreground font-normal">
-            Reserved for predicted donation lift, next-best post suggestions, and experiment planning once the ML pipeline is enabled.
+            Live call to <code className="text-xs">/api/prediction/social-media/{"{postId}"}</code>. Pick a top post from the current
+            date range.
           </p>
         </CardHeader>
-        <CardContent className="text-sm text-muted-foreground">
-          Today’s view uses deterministic rollups from your existing `SocialMediaPosts` rows.
+        <CardContent className="space-y-4 text-sm">
+          {topPosts.length === 0 ? (
+            <p className="text-muted-foreground">No posts in range — widen the date filter to score a post.</p>
+          ) : (
+            <div className="grid gap-2 max-w-md">
+              <Label className="text-xs text-muted-foreground">Post</Label>
+              <Select
+                value={mlPostId != null ? String(mlPostId) : ""}
+                onValueChange={(v) => setMlPostId(Number(v))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select post" />
+                </SelectTrigger>
+                <SelectContent>
+                  {topPosts.map((p) => (
+                    <SelectItem key={p.postId} value={String(p.postId)}>
+                      {p.platform} · {p.postType} · est. {formatPhp(Number(p.estimatedDonationValuePhp ?? 0))}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          {mlLoading ? <p className="text-muted-foreground">Loading…</p> : null}
+          {mlError ? <p className="text-destructive text-sm">{mlError}</p> : null}
+          {!mlLoading && !mlError && mlScore != null ? (
+            <p>
+              Model score: <span className="font-mono font-semibold">{mlScore.toFixed(4)}</span>
+            </p>
+          ) : null}
+          {!mlLoading && !mlError && mlPostId != null && mlScore == null && topPosts.length > 0 ? (
+            <p className="text-muted-foreground text-xs">No numeric score found in JSON — showing raw response is not enabled here.</p>
+          ) : null}
         </CardContent>
       </Card>
     </div>

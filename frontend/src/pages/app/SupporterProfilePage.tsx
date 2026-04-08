@@ -12,7 +12,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ArrowLeft, Gift, Mail, MapPin, Phone, User } from "lucide-react";
-import { donorsApi } from "@/lib/api";
+import { donorsApi, fetchDonorGivingPrediction, pickMlProxyScore } from "@/lib/api";
 
 const typeColors: Record<string, "default" | "secondary" | "outline" | "warning"> = {
   Monthly: "default",
@@ -56,6 +56,9 @@ export default function SupporterProfilePage() {
   const [contributions, setContributions] = useState<DonationRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [givingMlScore, setGivingMlScore] = useState<number | null>(null);
+  const [givingMlLoading, setGivingMlLoading] = useState(false);
+  const [givingMlError, setGivingMlError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!supporterId || Number.isNaN(idNum)) {
@@ -72,6 +75,26 @@ export default function SupporterProfilePage() {
       .catch((err: Error) => setError(err.message ?? "Failed to load"))
       .finally(() => setLoading(false));
   }, [supporterId, idNum]);
+
+  useEffect(() => {
+    if (!profile) return;
+    let cancelled = false;
+    setGivingMlLoading(true);
+    setGivingMlError(null);
+    fetchDonorGivingPrediction(profile.supporterId)
+      .then((raw) => {
+        if (!cancelled) setGivingMlScore(pickMlProxyScore(raw));
+      })
+      .catch((e: unknown) => {
+        if (!cancelled) setGivingMlError(e instanceof Error ? e.message : "Could not load donor-giving ML");
+      })
+      .finally(() => {
+        if (!cancelled) setGivingMlLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [profile?.supporterId]);
 
   if (loading) return <div className="p-8 text-muted-foreground">Loading...</div>;
   if (error || !profile) {
@@ -184,6 +207,27 @@ export default function SupporterProfilePage() {
                   <span className="font-medium tabular-nums shrink-0">{n}×</span>
                 </div>
               ))
+            )}
+          </CardContent>
+        </Card>
+        <Card className="sm:col-span-2 lg:col-span-3">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground font-body">Donor giving (ML via API)</CardTitle>
+          </CardHeader>
+          <CardContent className="text-sm">
+            <p className="text-xs text-muted-foreground mb-2">
+              Score from <code className="text-[10px]">/api/prediction/donor-giving</code>; browser never calls Python directly.
+            </p>
+            {givingMlLoading ? (
+              <p className="text-muted-foreground">Loading…</p>
+            ) : givingMlError ? (
+              <p className="text-destructive text-xs">{givingMlError}</p>
+            ) : givingMlScore != null ? (
+              <p>
+                Model score: <span className="font-mono font-semibold">{givingMlScore.toFixed(4)}</span>
+              </p>
+            ) : (
+              <p className="text-muted-foreground">No score in response (check API JSON shape).</p>
             )}
           </CardContent>
         </Card>

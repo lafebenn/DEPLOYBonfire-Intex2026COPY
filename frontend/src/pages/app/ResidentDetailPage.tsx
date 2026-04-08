@@ -25,7 +25,7 @@ import {
   Users,
   AlertTriangle,
 } from "lucide-react";
-import { fetchResidentRiskPrediction, pickMlResidentRiskScore, residentsApi } from "@/lib/api";
+import { fetchResidentRiskPrediction, pickMlProxyScore, residentsApi } from "@/lib/api";
 import { ResidentCaseEditDialog } from "@/components/ResidentCaseEditDialog";
 import { residentGetToWritePayload, type ResidentCaseWrite } from "@/lib/residentCaseWrite";
 import { useToast } from "@/hooks/use-toast";
@@ -388,7 +388,7 @@ export default function ResidentDetailPage() {
                 <p className="text-xs text-destructive">{mlPredError}</p>
               ) : (
                 (() => {
-                  const s = pickMlResidentRiskScore(mlPred);
+                  const s = pickMlProxyScore(mlPred);
                   if (s != null) {
                     return (
                       <p className="text-sm">

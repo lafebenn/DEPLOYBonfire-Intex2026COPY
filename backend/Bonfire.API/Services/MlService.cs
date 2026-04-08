@@ -27,22 +27,33 @@ public class MlService
     public Task<decimal> GetDonorLapseRiskAsync(int supporterId) =>
         GetOrRefreshAsync("DonorLapseRisk", "Supporter", supporterId, async () =>
         {
-            var body = await BuildDonorLapseBodyAsync(supporterId);
-            return await PostPredictAsync("/predict/donor-lapse", body);
+            var row = await MlProxyPayloadMappers.MapDonorLapseRowAsync(_db, supporterId)
+                      ?? throw new InvalidOperationException("Supporter not found");
+            var payload = new DonorLapsePredictPayload { Supporters = [row] };
+            var featureJson = JsonSerializer.Serialize(row, MlProxyJson.SerializerOptions);
+            return await PostMlV1PredictAsync("/v1/donor-lapse/predict", payload, featureJson);
         });
 
     public Task<decimal> GetResidentRiskScoreAsync(int residentId) =>
         GetOrRefreshAsync("ResidentRiskFlag", "Resident", residentId, async () =>
         {
-            var body = await BuildResidentRiskBodyAsync(residentId);
-            return await PostResidentRiskV1Async(body);
+            var row = await MlProxyPayloadMappers.MapResidentRiskRowAsync(_db, residentId)
+                      ?? throw new InvalidOperationException("Resident not found");
+            var payload = new ResidentRiskPredictPayload { Residents = [row] };
+            var featureJson = JsonSerializer.Serialize(row, MlProxyJson.SerializerOptions);
+            return await PostMlV1PredictAsync("/v1/resident-risk/predict", payload, featureJson);
         });
 
     public Task<decimal> GetSocialMediaDonationScoreAsync(int postId) =>
         GetOrRefreshAsync("SocialMediaScore", "SocialMediaPost", postId, async () =>
         {
-            var body = await BuildSocialBodyAsync(postId);
-            return await PostPredictAsync("/predict/social-media-score", body);
+            var p = await _db.SocialMediaPosts.AsNoTracking().FirstOrDefaultAsync(x => x.PostId == postId)
+                    ?? throw new InvalidOperationException("Post not found");
+            var row = MlProxyPayloadMappers.MapSocialMediaRow(p)
+                      ?? throw new InvalidOperationException("Post not found");
+            var payload = new SocialMediaPredictPayload { Posts = [row] };
+            var featureJson = JsonSerializer.Serialize(row, MlProxyJson.SerializerOptions);
+            return await PostMlV1PredictAsync("/v1/social-media/predict", payload, featureJson);
         });
 
     public Task<decimal> GetDonorUpgradeScoreAsync(int supporterId) =>
@@ -138,17 +149,18 @@ public class MlService
         return (dto.Score, dto.Label, json, dto.ModelVersion ?? "unknown");
     }
 
-    /// <summary>POST /v1/resident-risk/predict with a one-row feature array (FastAPI contract).</summary>
-    private async Task<(decimal Score, string? Label, string? FeatureJson, string ModelVersion)> PostResidentRiskV1Async(object featureRow)
+    private async Task<(decimal Score, string? Label, string? FeatureJson, string ModelVersion)> PostMlV1PredictAsync(
+        string relativePath,
+        object payload,
+        string featureJsonForCache)
     {
-        var featureJson = JsonSerializer.Serialize(featureRow, JsonOpts);
-        var payload = JsonSerializer.Serialize(new[] { featureRow }, JsonOpts);
-        using var content = new StringContent(payload, Encoding.UTF8, "application/json");
-        var resp = await _http.PostAsync("/v1/resident-risk/predict", content);
+        var json = JsonSerializer.Serialize(payload, MlProxyJson.SerializerOptions);
+        using var content = new StringContent(json, Encoding.UTF8, "application/json");
+        var resp = await _http.PostAsync(relativePath, content);
         resp.EnsureSuccessStatusCode();
         var text = await resp.Content.ReadAsStringAsync();
         var (score, label, version) = ParseFlexibleMlScore(text);
-        return (score, label, featureJson, version);
+        return (score, label, featureJsonForCache, version);
     }
 
     private static (decimal Score, string? Label, string ModelVersion) ParseFlexibleMlScore(string json)
@@ -165,6 +177,13 @@ public class MlService
 
         if (row.ValueKind == JsonValueKind.Object)
         {
+            if (row.TryGetProperty("results", out var results) && results.ValueKind == JsonValueKind.Array &&
+                results.GetArrayLength() > 0)
+                return ParseFlexibleMlScore(results[0].GetRawText());
+            if (row.TryGetProperty("predictions", out var preds) && preds.ValueKind == JsonValueKind.Array &&
+                preds.GetArrayLength() > 0)
+                return ParseFlexibleMlScore(preds[0].GetRawText());
+
             if (row.TryGetProperty("score", out var s))
                 score = s.GetDecimal();
             else if (row.TryGetProperty("Score", out var s2))
@@ -182,82 +201,6 @@ public class MlService
         }
 
         return (score, label, version);
-    }
-
-    private async Task<object> BuildDonorLapseBodyAsync(int supporterId)
-    {
-        var s = await _db.Supporters.AsNoTracking().FirstOrDefaultAsync(x => x.SupporterId == supporterId)
-                ?? throw new InvalidOperationException("Supporter not found");
-        var donations = await _db.Donations.AsNoTracking().Where(d => d.SupporterId == supporterId).ToListAsync();
-        var last = donations.OrderByDescending(d => d.DonationDate).FirstOrDefault();
-        var daysSince = last == null ? 999 : (DateOnly.FromDateTime(DateTime.UtcNow).DayNumber - last.DonationDate.DayNumber);
-        return new
-        {
-            supporterId,
-            daysSinceLastDonation = daysSince,
-            donationCount = donations.Count,
-            totalLifetimeValue = donations.Sum(d => d.Amount ?? d.EstimatedValue ?? 0),
-            isRecurring = donations.Any(d => d.IsRecurring),
-            acquisitionChannel = s.AcquisitionChannel,
-            donationType = donations.FirstOrDefault()?.DonationType ?? ""
-        };
-    }
-
-    private async Task<object> BuildResidentRiskBodyAsync(int residentId)
-    {
-        var r = await _db.Residents.AsNoTracking().FirstOrDefaultAsync(x => x.ResidentId == residentId)
-                ?? throw new InvalidOperationException("Resident not found");
-        var recentIncidents = await _db.IncidentReports.CountAsync(i => i.ResidentId == residentId && i.IncidentDate >= DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-90)));
-        var lastSession = await _db.ProcessRecordings.AsNoTracking()
-            .Where(p => p.ResidentId == residentId)
-            .OrderByDescending(p => p.SessionDate)
-            .Select(p => (DateOnly?)p.SessionDate)
-            .FirstOrDefaultAsync();
-        var daysSinceSession = lastSession == null ? 999 : (DateOnly.FromDateTime(DateTime.UtcNow).DayNumber - lastSession.Value.DayNumber);
-        var avgEmotional = 0.5m;
-        var edu = await _db.EducationRecords.AsNoTracking()
-            .Where(e => e.ResidentId == residentId)
-            .OrderByDescending(e => e.RecordDate)
-            .Select(e => (decimal?)e.ProgressPercent)
-            .FirstOrDefaultAsync() ?? 0;
-        var health = await _db.HealthWellbeingRecords.AsNoTracking()
-            .Where(h => h.ResidentId == residentId)
-            .OrderByDescending(h => h.RecordDate)
-            .Select(h => (decimal?)h.GeneralHealthScore)
-            .FirstOrDefaultAsync() ?? 0;
-        var openIv = await _db.InterventionPlans.CountAsync(p => p.ResidentId == residentId && p.Status != "Closed");
-        return new
-        {
-            residentId,
-            currentRiskLevel = r.CurrentRiskLevel,
-            recentIncidentCount = recentIncidents,
-            daysSinceLastSession = daysSinceSession,
-            avgEmotionalStateScore = avgEmotional,
-            educationProgress = edu,
-            healthScore = health,
-            openInterventionCount = openIv
-        };
-    }
-
-    private async Task<object> BuildSocialBodyAsync(int postId)
-    {
-        var p = await _db.SocialMediaPosts.AsNoTracking().FirstOrDefaultAsync(x => x.PostId == postId)
-                ?? throw new InvalidOperationException("Post not found");
-        return new
-        {
-            postId,
-            platform = p.Platform,
-            postType = p.PostType,
-            mediaType = p.MediaType,
-            contentTopic = p.ContentTopic,
-            sentimentTone = p.SentimentTone,
-            hasCallToAction = p.HasCallToAction,
-            isBoosted = p.IsBoosted,
-            postHour = p.PostHour,
-            dayOfWeek = p.DayOfWeek,
-            numHashtags = p.NumHashtags,
-            featuresResidentStory = p.FeaturesResidentStory
-        };
     }
 
     private async Task<object> BuildDonorUpgradeBodyAsync(int supporterId)

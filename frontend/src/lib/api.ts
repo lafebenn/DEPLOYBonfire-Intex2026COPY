@@ -28,12 +28,12 @@ export function getApiBaseUrl(): string {
   return getBaseUrl();
 }
 
-/** Raw JSON from GET /api/prediction/resident-risk/{id} (ML proxy; not wrapped in ApiResponse). */
-export async function fetchResidentRiskPrediction(residentId: number): Promise<unknown> {
+/** GET /api/prediction/* ML proxy (raw JSON, not ApiResponse). */
+async function fetchMlPredictionProxy(urlPath: string): Promise<unknown> {
   const base = getBaseUrl();
   const t = getStoredToken();
   if (!t) throw new Error("Sign in required");
-  const res = await fetch(`${base}/api/prediction/resident-risk/${residentId}`, {
+  const res = await fetch(`${base}${urlPath}`, {
     headers: { Authorization: `Bearer ${t}`, Accept: "application/json" },
   });
   const text = await res.text();
@@ -55,20 +55,45 @@ export async function fetchResidentRiskPrediction(residentId: number): Promise<u
   }
 }
 
-/** Best-effort score from ML JSON object or single-element array. */
-export function pickMlResidentRiskScore(raw: unknown): number | null {
+export function fetchResidentRiskPrediction(residentId: number): Promise<unknown> {
+  return fetchMlPredictionProxy(`/api/prediction/resident-risk/${residentId}`);
+}
+
+export function fetchDonorGivingPrediction(donorId: number): Promise<unknown> {
+  return fetchMlPredictionProxy(`/api/prediction/donor-giving/${donorId}`);
+}
+
+export function fetchSocialMediaPrediction(postId: number): Promise<unknown> {
+  return fetchMlPredictionProxy(`/api/prediction/social-media/${postId}`);
+}
+
+/**
+ * Extract a numeric score from common ML API JSON shapes (object, batch array, results/predictions wrappers).
+ */
+export function pickMlProxyScore(raw: unknown): number | null {
   if (raw == null) return null;
+  if (typeof raw === "number" && Number.isFinite(raw)) return raw;
   if (typeof raw === "object" && !Array.isArray(raw)) {
     const o = raw as Record<string, unknown>;
-    const s = o.score ?? o.Score;
-    if (typeof s === "number" && Number.isFinite(s)) return s;
+    for (const k of ["score", "Score", "predicted_score", "prediction", "donation_score"]) {
+      const v = o[k];
+      if (typeof v === "number" && Number.isFinite(v)) return v;
+    }
+    for (const k of ["results", "predictions", "data"]) {
+      const v = o[k];
+      if (Array.isArray(v) && v.length > 0) {
+        const inner = pickMlProxyScore(v[0]);
+        if (inner != null) return inner;
+      }
+    }
   }
-  if (Array.isArray(raw) && raw.length > 0 && raw[0] != null && typeof raw[0] === "object") {
-    const o = raw[0] as Record<string, unknown>;
-    const s = o.score ?? o.Score;
-    if (typeof s === "number" && Number.isFinite(s)) return s;
-  }
+  if (Array.isArray(raw) && raw.length > 0) return pickMlProxyScore(raw[0]);
   return null;
+}
+
+/** @deprecated Use pickMlProxyScore — kept for call sites that only need resident-risk shape. */
+export function pickMlResidentRiskScore(raw: unknown): number | null {
+  return pickMlProxyScore(raw);
 }
 
 async function request<T>(
