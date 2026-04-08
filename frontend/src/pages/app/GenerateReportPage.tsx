@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -9,11 +9,12 @@ import { useToast } from "@/hooks/use-toast";
 import { localData } from "@/lib/localData";
 
 const templates = [
-  "Monthly Caseload Summary",
-  "Donation & Fundraising Report",
-  "Program Outcomes Report",
-  "Staff Activity Report",
-  "Quarterly Impact Summary",
+  "Annual Program Accomplishment Report",
+  "Monthly Caseload & Status Summary",
+  "Program & Safehouse Comparison",
+  "Reintegration & Transition Outcomes",
+  "Resource Mobilization & Allocations",
+  "Staff Activity & Documentation Compliance",
 ];
 
 export default function GenerateReportPage() {
@@ -24,17 +25,21 @@ export default function GenerateReportPage() {
   const [notes, setNotes] = useState("");
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-2xl mx-auto space-y-6">
       <div>
-        <h2 className="font-heading text-2xl font-bold">Generate Report</h2>
-        <p className="text-muted-foreground text-sm mt-1">
-          Generate a report run (stored locally for now).
+        <h2 className="font-heading text-2xl font-bold">Generate report run</h2>
+        <p className="text-muted-foreground text-sm mt-1 leading-relaxed font-body">
+          Log a report generation for your records (stored locally). Use the main Reports page for SWD-style previews,
+          charts, and CSV annex exports tied to live demo data.
         </p>
       </div>
 
-      <Card className="card-warm">
+      <Card className="card-warm border-secondary/25 shadow-warm">
         <CardHeader>
-          <CardTitle>Report options</CardTitle>
+          <CardTitle className="font-heading">Report options</CardTitle>
+          <CardDescription className="font-body">
+            Select a template aligned with Philippine social welfare accomplishment reporting and partner submissions.
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
           <div className="space-y-2">
@@ -57,9 +62,10 @@ export default function GenerateReportPage() {
             <Label htmlFor="notes">Notes (optional)</Label>
             <Textarea
               id="notes"
-              placeholder="Add any context for this report run (e.g., board meeting, end-of-month close)..."
+              placeholder="e.g. DSWD partner submission draft, board packet Q2, grant narrative attachment…"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
+              className="min-h-[100px] font-body"
             />
           </div>
 
@@ -74,8 +80,8 @@ export default function GenerateReportPage() {
                   notes: notes.trim().length ? notes.trim() : undefined,
                 });
                 toast({
-                  title: "Report generated",
-                  description: `Added a new run for “${templateTitle}”.`,
+                  title: "Report run logged",
+                  description: `Recorded “${templateTitle}”. Open Reports for previews and CSV exports.`,
                 });
                 navigate("/app/reports");
               }}
@@ -88,4 +94,3 @@ export default function GenerateReportPage() {
     </div>
   );
 }
-
