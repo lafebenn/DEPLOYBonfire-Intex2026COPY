@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { HeartHandshake, Lock, ShieldCheck, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { donorPortalApi } from "@/lib/api";
 
 type Frequency = "one_time" | "monthly";
 
@@ -172,6 +173,9 @@ export default function DonatePage() {
             <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
               <Button asChild size="lg" variant="hero">
                 <Link to="/impact">See the impact you’re part of</Link>
+              </Button>
+              <Button asChild size="lg" variant="outline">
+                <Link to="/donor">See your total impact</Link>
               </Button>
               <Button
                 size="lg"
@@ -422,15 +426,40 @@ export default function DonatePage() {
                       variant="hero"
                       size="lg"
                       disabled={!canSubmit}
-                      onClick={() => {
-                        const reference = `DN-${crypto.randomUUID()
-                          .split("-")[0]
-                          .toUpperCase()}`;
-                        setSubmittedId(reference);
-                        toast({
-                          title: "Donation received (demo)",
-                          description: "This is a placeholder until payment is wired up.",
-                        });
+                      onClick={async () => {
+                        try {
+                          // Donors: record a fake donation to the DB so it shows on their dashboard.
+                          if (user?.role === "donor") {
+                            const res = await donorPortalApi.createMyDonation({
+                              donationType: state.frequency === "monthly" ? "Monthly" : "One-time",
+                              donationDate: new Date().toISOString().slice(0, 10),
+                              amount: state.amount,
+                              notes: state.message?.trim() || undefined,
+                              campaignName: undefined,
+                              isRecurring: state.frequency === "monthly",
+                            });
+                            if (!res.success) throw new Error(res.message || "Failed to record donation");
+
+                            const id = (res.data as { id?: number } | undefined)?.id;
+                            setSubmittedId(id ? `DN-${String(id).padStart(6, "0")}` : "DN-RECORDED");
+                            toast({ title: "Donation recorded", description: "Added to your giving history." });
+                            return;
+                          }
+
+                          // Fallback demo receipt (should be rare since we require sign-in to donate).
+                          const reference = `DN-${crypto.randomUUID().split("-")[0].toUpperCase()}`;
+                          setSubmittedId(reference);
+                          toast({
+                            title: "Donation received (demo)",
+                            description: "Sign in as a donor to save this donation to your dashboard.",
+                          });
+                        } catch (e) {
+                          toast({
+                            title: "Could not submit donation",
+                            description: e instanceof Error ? e.message : "Unknown error",
+                            variant: "destructive",
+                          });
+                        }
                       }}
                     >
                       Donate ${state.amount}

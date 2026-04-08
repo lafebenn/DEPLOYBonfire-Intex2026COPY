@@ -12,6 +12,7 @@ import AuthenticatedLayout from "@/layouts/AuthenticatedLayout";
 import LandingPage from "@/pages/LandingPage";
 import ImpactPage from "@/pages/ImpactPage";
 import DonatePage from "@/pages/DonatePage";
+import DonorDashboardPage from "@/pages/DonorDashboardPage";
 import LoginPage from "@/pages/LoginPage";
 import RegisterDonorPage from "@/pages/RegisterDonorPage";
 import PrivacyPage from "@/pages/PrivacyPage";
@@ -64,6 +65,14 @@ const App = () => (
             <Route element={<PublicLayout />}>
               <Route path="/" element={<LandingPage />} />
               <Route path="/impact" element={<ImpactPage />} />
+              <Route
+                path="/donor"
+                element={
+                  <ProtectedRoute roles={["donor"]}>
+                    <DonorDashboardPage />
+                  </ProtectedRoute>
+                }
+              />
               <Route
                 path="/donate"
                 element={

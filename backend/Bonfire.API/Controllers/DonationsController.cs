@@ -47,6 +47,39 @@ public class DonationsController : ControllerBase
         return Ok(ApiResponse<object>.Ok(list));
     }
 
+    [HttpGet("me")]
+    [Authorize(Roles = "Donor")]
+    public async Task<ActionResult<ApiResponse<object>>> MyDonations()
+    {
+        var mine = LinkedSupporterId();
+        if (!mine.HasValue)
+            return BadRequest(ApiResponse<object>.Fail("Donor account is not linked to a supporter profile."));
+
+        var list = await _db.Donations.AsNoTracking()
+            .Where(d => d.SupporterId == mine.Value)
+            .OrderByDescending(d => d.DonationDate)
+            .Select(d => new
+            {
+                d.DonationId,
+                d.DonationDate,
+                d.DonationType,
+                d.Amount,
+                d.EstimatedValue,
+                d.IsRecurring,
+                d.CampaignName,
+                d.ChannelSource,
+                d.ImpactUnit,
+                d.Notes
+            })
+            .ToListAsync();
+
+        return Ok(ApiResponse<object>.Ok(new
+        {
+            supporterId = mine.Value,
+            donations = list
+        }));
+    }
+
     [HttpGet("{id:int}")]
     [Authorize(Roles = "Admin,Donor")]
     public async Task<ActionResult<ApiResponse<object>>> Get(int id)
@@ -105,6 +138,52 @@ public class DonationsController : ControllerBase
         };
         _db.Donations.Add(e);
         await _db.SaveChangesAsync();
+        return StatusCode(201, ApiResponse<object>.Ok(new { id = e.DonationId }));
+    }
+
+    public class DonorDonationWriteDto
+    {
+        public string DonationType { get; set; } = "One-time";
+        public DateOnly DonationDate { get; set; } = DateOnly.FromDateTime(DateTime.UtcNow);
+        public decimal? Amount { get; set; }
+        public string? Notes { get; set; }
+        public string? CampaignName { get; set; }
+        public bool IsRecurring { get; set; }
+    }
+
+    /// <summary>
+    /// Fake donation entry: donor can submit a gift that gets recorded in the operational DB (no payment processing).
+    /// </summary>
+    [HttpPost("me")]
+    [Authorize(Roles = "Donor")]
+    public async Task<ActionResult<ApiResponse<object>>> CreateMyDonation([FromBody] DonorDonationWriteDto dto)
+    {
+        var mine = LinkedSupporterId();
+        if (!mine.HasValue)
+            return BadRequest(ApiResponse<object>.Fail("Donor account is not linked to a supporter profile."));
+
+        if (dto.Amount == null || dto.Amount <= 0m)
+            return BadRequest(ApiResponse<object>.Fail("Amount must be greater than 0."));
+
+        var e = new Donation
+        {
+            SupporterId = mine.Value,
+            DonationType = _s.Sanitize(dto.DonationType) ?? "One-time",
+            DonationDate = dto.DonationDate,
+            ChannelSource = "DonorPortal",
+            CurrencyCode = "PHP",
+            Amount = dto.Amount,
+            EstimatedValue = null,
+            ImpactUnit = null,
+            IsRecurring = dto.IsRecurring,
+            CampaignName = _s.Sanitize(dto.CampaignName),
+            Notes = _s.Sanitize(dto.Notes),
+            CreatedByPartnerId = null,
+            ReferralPostId = null
+        };
+        _db.Donations.Add(e);
+        await _db.SaveChangesAsync();
+
         return StatusCode(201, ApiResponse<object>.Ok(new { id = e.DonationId }));
     }
 

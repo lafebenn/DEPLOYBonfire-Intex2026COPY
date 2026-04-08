@@ -22,9 +22,14 @@ export default function PublicLayout() {
             {isAuthenticated ? (
               <>
                 {user?.role === "donor" ? (
-                  <Button asChild size="sm" variant="default">
-                    <Link to="/donate">Donate</Link>
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button asChild size="sm" variant="outline">
+                      <Link to="/donor">Dashboard</Link>
+                    </Button>
+                    <Button asChild size="sm" variant="default">
+                      <Link to="/donate">Donate</Link>
+                    </Button>
+                  </div>
                 ) : (
                   <Button asChild size="sm">
                     <Link to="/app">Staff portal</Link>

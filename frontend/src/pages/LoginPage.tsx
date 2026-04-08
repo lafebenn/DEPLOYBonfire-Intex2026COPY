@@ -12,7 +12,8 @@ import { AlertCircle } from "lucide-react";
 function resolvePostLoginPath(userRole: string, requested: string): string {
   if (userRole === "donor") {
     if (requested === "/donate" || requested.startsWith("/donate")) return "/donate";
-    return "/donate";
+    if (requested === "/donor" || requested.startsWith("/donor")) return requested;
+    return "/donor";
   }
   if (requested && requested !== "/donate") return requested;
   return "/app";

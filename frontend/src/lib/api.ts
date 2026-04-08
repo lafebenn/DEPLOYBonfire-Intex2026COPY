@@ -255,6 +255,13 @@ export const donorsApi = {
     request<null>(`/api/donations/${id}`, { method: "PUT", body: JSON.stringify(body) }),
 };
 
+/** --- Donor portal --- */
+export const donorPortalApi = {
+  myDonations: () => request<unknown>("/api/donations/me"),
+  createMyDonation: (body: unknown) =>
+    request<{ id: number }>("/api/donations/me", { method: "POST", body: JSON.stringify(body) }),
+};
+
 /** --- Social --- */
 export const socialMediaApi = {
   list: (params?: Record<string, string | undefined>) => {

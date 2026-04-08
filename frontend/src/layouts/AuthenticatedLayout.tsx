@@ -51,7 +51,7 @@ export default function AuthenticatedLayout() {
 
   /** Donors use the public donor/giving flow only (not the staff app shell). */
   if (user?.role === "donor") {
-    return <Navigate to="/donate" replace />;
+    return <Navigate to="/donor" replace />;
   }
 
   const visibleNav = navItems.filter((item) => item.roles.includes(user!.role));
