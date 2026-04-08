@@ -335,8 +335,7 @@ export default function ReportsPage() {
             Layout and annex tables follow conventions common in{" "}
             <strong className="text-foreground">Philippine social welfare and development</strong> annual accomplishment
             submissions—aggregate indicators for boards, partners, and grant reporting. KPIs and charts load from the{" "}
-            <strong className="text-foreground">Bonfire API</strong> when you are signed in; if the request fails, the page
-            falls back to demo data stored in the browser.
+            <strong className="text-foreground">Bonfire API</strong> when you are signed in.
           </p>
           <div className="mt-3 flex flex-wrap justify-center gap-2 items-center">
             {metricsLoading ? (
@@ -541,7 +540,7 @@ export default function ReportsPage() {
                 Operational insights
               </CardTitle>
               <CardDescription className="font-body text-sm leading-relaxed">
-                Short reads derived from your current records—useful for staff huddles and accomplishment narratives.
+                Short reads dynamically derived from your current records—useful for staff huddles and accomplishment narratives.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">

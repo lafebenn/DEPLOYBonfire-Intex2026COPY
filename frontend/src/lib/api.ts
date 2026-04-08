@@ -209,6 +209,7 @@ export const residentsApi = {
     request<{ id: number }>("/api/residents", { method: "POST", body: JSON.stringify(body) }),
   update: (id: number, body: unknown) =>
     request<null>(`/api/residents/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+  /** Permanent server-side delete. Call only after explicit in-app confirmation (e.g. AlertDialog). */
   delete: (id: number) => request<null>(`/api/residents/${id}?confirm=true`, { method: "DELETE" }),
 
   processRecordings: (residentId: number) => request<unknown[]>(`/api/residents/${residentId}/process-recordings`),
@@ -267,6 +268,7 @@ export const safehousesApi = {
     request<{ id: number }>("/api/safehouses", { method: "POST", body: JSON.stringify(body) }),
   update: (id: number, body: unknown) =>
     request<null>(`/api/safehouses/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+  /** Permanent server-side delete. Call only after explicit in-app confirmation (not wired in UI yet). */
   delete: (id: number) => request<null>(`/api/safehouses/${id}?confirm=true`, { method: "DELETE" }),
 };
 

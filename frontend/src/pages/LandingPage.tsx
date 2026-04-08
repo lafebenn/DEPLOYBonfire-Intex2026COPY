@@ -43,14 +43,6 @@ export default function LandingPage() {
                   See Our Impact <ArrowRight className="h-5 w-5 ml-1" />
                 </Link>
               </Button>
-              <Button
-                variant="outline"
-                size="lg"
-                className="border-white/70 text-white bg-white/0 hover:bg-white/10 hover:border-white"
-                asChild
-              >
-                <Link to="/login">Staff Portal</Link>
-              </Button>
             </div>
           </div>
         </div>
