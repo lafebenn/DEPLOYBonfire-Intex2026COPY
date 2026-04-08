@@ -34,17 +34,11 @@ public class DashboardController : ControllerBase
     {
         var now = DateTime.UtcNow;
         var monthStart = new DateOnly(now.Year, now.Month, 1);
+        var inactiveStatuses = new[] { "closed", "archived", "discharged", "inactive", "completed" };
 
+        // Treat case status comparisons as case-insensitive (prod data can vary in capitalization).
         var activeResidentCount = await _db.Residents.CountAsync(r =>
-            r.CaseStatus == "Active"
-            || r.CaseStatus == "Open"
-            || r.CaseStatus == "In Progress"
-            || r.CaseStatus == "Enrolled"
-            || (r.CaseStatus != "Closed"
-                && r.CaseStatus != "Archived"
-                && r.CaseStatus != "Discharged"
-                && r.CaseStatus != "Inactive"
-                && r.CaseStatus != "Completed"));
+            r.CaseStatus != null && !inactiveStatuses.Contains(r.CaseStatus.ToLower()));
 
         // Avoid loading the entire MlPredictions table (can hang or time out); only rows we need for this dashboard.
         var preds = await _db.MlPredictions.AsNoTracking()
@@ -124,15 +118,7 @@ public class DashboardController : ControllerBase
 
         var activeResidentRows = await _db.Residents.AsNoTracking()
             .Where(r =>
-                r.CaseStatus == "Active"
-                || r.CaseStatus == "Open"
-                || r.CaseStatus == "In Progress"
-                || r.CaseStatus == "Enrolled"
-                || (r.CaseStatus != "Closed"
-                    && r.CaseStatus != "Archived"
-                    && r.CaseStatus != "Discharged"
-                    && r.CaseStatus != "Inactive"
-                    && r.CaseStatus != "Completed"))
+                r.CaseStatus != null && !inactiveStatuses.Contains(r.CaseStatus.ToLower()))
             .Select(r => new ResidentAttentionScoreComputer.ActiveResidentRow
             {
                 ResidentId = r.ResidentId,
