@@ -183,10 +183,11 @@ var publicApiBase = builder.Configuration["PublicApi:BaseUrl"]?.Trim().TrimEnd('
 var connectExtra = string.IsNullOrEmpty(publicApiBase) ? "" : $" {publicApiBase}";
 var csp = "default-src 'self'; " +
           "script-src 'self'; " +
-          "style-src 'self' 'unsafe-inline'; " +
+          "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
+          "style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
           "img-src 'self' data: https:; " +
           $"connect-src 'self'{connectExtra} https://accounts.google.com; " +
-          "font-src 'self'; " +
+          "font-src 'self' https://fonts.gstatic.com; " +
           "frame-src https://accounts.google.com; " +
           "object-src 'none'; " +
           "base-uri 'self'; " +
