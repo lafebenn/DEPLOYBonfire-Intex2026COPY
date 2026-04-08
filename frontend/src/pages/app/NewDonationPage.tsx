@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -82,7 +82,11 @@ export default function NewDonationPage() {
       <div>
         <h2 className="font-heading text-2xl font-bold">Add Donation</h2>
         <p className="text-muted-foreground text-sm mt-1">
-          Record a new donation or contribution (saved to the database).
+          Record a gift for a supporter. Site and program tags keep{" "}
+          <Link to="/app/reports" className="text-primary underline-offset-4 hover:underline">
+            Reports &amp; analytics
+          </Link>{" "}
+          aligned with how money is directed.
         </p>
       </div>
 
@@ -131,7 +135,7 @@ export default function NewDonationPage() {
                 onChange={(e) => {
                   const v = e.target.value;
                   setAmount(v);
-                  // Convenience: default allocation amount to the same numeric value.
+                  // Convenience: default site/program amount to the same numeric value.
                   if (!amountAllocated) setAmountAllocated(v);
                 }}
                 autoComplete="off"
@@ -159,7 +163,13 @@ export default function NewDonationPage() {
           </div>
 
           <div className="rounded-xl border border-border bg-muted/20 p-4 space-y-4">
-            <p className="text-sm font-heading font-semibold">Allocation (required for Reports)</p>
+            <div className="space-y-1">
+              <p className="text-sm font-heading font-semibold">Program &amp; safehouse</p>
+              <p className="text-xs text-muted-foreground font-body leading-relaxed">
+                Required so Reports can attribute giving to a site and program area (monthly trends, KPIs, and operational
+                insights). Use the same amounts as the gift total when the full gift applies to one line.
+              </p>
+            </div>
             <div className="grid md:grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label>Safehouse</Label>
@@ -192,7 +202,7 @@ export default function NewDonationPage() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="amountAllocated">Amount allocated (PHP)</Label>
+                <Label htmlFor="amountAllocated">Amount for this site (PHP)</Label>
                 <Input
                   id="amountAllocated"
                   placeholder="5000"
@@ -202,9 +212,6 @@ export default function NewDonationPage() {
                 />
               </div>
             </div>
-            <p className="text-xs text-muted-foreground">
-              This creates a row in <code>donation_allocations</code> so “Top allocations” appears on Reports.
-            </p>
           </div>
 
           <div className="flex items-center justify-end gap-3">
@@ -224,13 +231,13 @@ export default function NewDonationPage() {
                   return;
                 }
                 if (allocParsed == null) {
-                  setSubmitError("Enter a valid allocated amount.");
+                  setSubmitError("Enter a valid amount for this site.");
                   setSubmitting(false);
                   return;
                 }
                 const shId = Number(safehouseId);
                 if (!Number.isFinite(shId) || shId <= 0) {
-                  setSubmitError("Select a safehouse for allocation.");
+                  setSubmitError("Select a safehouse for this gift.");
                   setSubmitting(false);
                   return;
                 }
