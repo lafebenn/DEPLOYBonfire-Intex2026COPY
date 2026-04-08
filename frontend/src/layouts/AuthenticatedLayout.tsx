@@ -13,6 +13,7 @@ import {
   Share2,
   LogOut,
   Menu,
+  User,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
@@ -56,14 +57,14 @@ export default function AuthenticatedLayout() {
   const visibleNav = navItems.filter((item) => item.roles.includes(user!.role));
 
   return (
-    <div className="min-h-screen flex">
-      {/* Sidebar */}
+    <div className="h-dvh min-h-0 flex overflow-hidden bg-background">
+      {/* Sidebar: fixed viewport height; only nav scrolls */}
       <aside
         className={`${
           sidebarOpen ? "w-64" : "w-16"
-        } bg-sidebar text-sidebar-foreground border-r border-sidebar-border flex flex-col transition-all duration-300 shrink-0`}
+        } bg-sidebar text-sidebar-foreground border-r border-sidebar-border flex flex-col h-full min-h-0 transition-all duration-300 shrink-0`}
       >
-        <div className="h-16 flex items-center px-4 border-b border-sidebar-border">
+        <div className="h-16 flex items-center px-4 border-b border-sidebar-border shrink-0">
           {sidebarOpen ? (
             <BonfireLogo variant="sidebar" />
           ) : (
@@ -75,7 +76,7 @@ export default function AuthenticatedLayout() {
           )}
         </div>
 
-        <nav className="flex-1 py-4 px-2 space-y-1">
+        <nav className="flex-1 min-h-0 overflow-y-auto py-4 px-2 space-y-1">
           {visibleNav.map((item) => (
             <NavLink
               key={item.url}
@@ -90,14 +91,23 @@ export default function AuthenticatedLayout() {
           ))}
         </nav>
 
-        <div className="p-3 border-t border-sidebar-border">
-          {sidebarOpen && (
-            <div className="px-3 py-2 mb-2">
-              <p className="text-sm font-medium text-sidebar-foreground">{user?.name}</p>
-              <p className="text-xs text-sidebar-foreground/50 capitalize">{user?.role.replace("_", " ")}</p>
+        <div className="shrink-0 p-3 border-t border-sidebar-border bg-sidebar">
+          <div
+            className={`flex items-center gap-3 px-3 py-2 mb-1 rounded-xl ${sidebarOpen ? "" : "justify-center px-0"}`}
+            title={user?.name}
+          >
+            <div className="h-9 w-9 rounded-full bg-sidebar-accent flex items-center justify-center shrink-0">
+              <User className="h-4 w-4 text-sidebar-primary" aria-hidden />
             </div>
-          )}
+            {sidebarOpen && (
+              <div className="min-w-0 text-left">
+                <p className="text-sm font-medium text-sidebar-foreground truncate">{user?.name}</p>
+                <p className="text-xs text-sidebar-foreground/50 capitalize truncate">{user?.role.replace("_", " ")}</p>
+              </div>
+            )}
+          </div>
           <button
+            type="button"
             onClick={logout}
             className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-sidebar-foreground/50 hover:bg-sidebar-accent hover:text-destructive transition-colors w-full"
           >
@@ -108,7 +118,7 @@ export default function AuthenticatedLayout() {
       </aside>
 
       {/* Main content */}
-      <div className="flex-1 flex flex-col min-h-screen">
+      <div className="flex-1 flex flex-col min-h-0 min-w-0">
         <header className="h-16 border-b border-border bg-card/80 backdrop-blur-sm flex items-center px-6 shrink-0">
           <Button
             variant="ghost"
@@ -124,7 +134,7 @@ export default function AuthenticatedLayout() {
           </h1>
         </header>
 
-        <main className="flex-1 overflow-auto p-6 md:p-8">
+        <main className="flex-1 min-h-0 overflow-y-auto p-6 md:p-8">
           <div className="max-w-[1200px] mx-auto">
             <Outlet />
           </div>

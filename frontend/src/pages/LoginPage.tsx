@@ -94,75 +94,79 @@ export default function LoginPage() {
 
   if (mfaStep) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background px-4 py-10">
-        <div className="w-full max-w-md space-y-6">
-          <Button variant="outline" size="lg" className="w-full" asChild>
-            <Link to="/">Back to home</Link>
-          </Button>
-          <div className="text-center">
-            <div className="flex justify-center mb-4">
-              <BonfireLogo size="lg" />
+      <div className="min-h-dvh flex flex-col bg-background">
+        <div className="flex-1 flex items-center justify-center px-4 py-10">
+          <div className="w-full max-w-md space-y-6">
+            <div className="text-center">
+              <div className="flex justify-center mb-4">
+                <BonfireLogo size="lg" />
+              </div>
+              <p className="text-muted-foreground">Two-step verification</p>
             </div>
-            <p className="text-muted-foreground">Two-step verification</p>
-          </div>
-          <Card>
-            <CardHeader>
-              <CardTitle>Authenticator required</CardTitle>
-              <CardDescription>
-                Account <strong>{mfaStep.email}</strong> has two-factor authentication enabled. Enter the code from your
-                authenticator app.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleMfaSubmit} className="space-y-4">
-                {error && (
-                  <div className="flex items-center gap-2 bg-destructive/10 text-destructive rounded-lg px-4 py-3 text-sm">
-                    <AlertCircle className="h-4 w-4 shrink-0" />
-                    {error}
+            <Card>
+              <CardHeader>
+                <CardTitle>Authenticator required</CardTitle>
+                <CardDescription>
+                  Account <strong>{mfaStep.email}</strong> has two-factor authentication enabled. Enter the code from your
+                  authenticator app.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleMfaSubmit} className="space-y-4">
+                  {error && (
+                    <div className="flex items-center gap-2 bg-destructive/10 text-destructive rounded-lg px-4 py-3 text-sm">
+                      <AlertCircle className="h-4 w-4 shrink-0" />
+                      {error}
+                    </div>
+                  )}
+                  <div className="space-y-2">
+                    <Label htmlFor="mfa">6-digit code</Label>
+                    <Input
+                      id="mfa"
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      placeholder="000000"
+                      value={mfaCode}
+                      onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                      disabled={mfaVerifyLoading}
+                    />
                   </div>
-                )}
-                <div className="space-y-2">
-                  <Label htmlFor="mfa">6-digit code</Label>
-                  <Input
-                    id="mfa"
-                    inputMode="numeric"
-                    autoComplete="one-time-code"
-                    placeholder="000000"
-                    value={mfaCode}
-                    onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  <Button type="submit" className="w-full" variant="secondary" disabled={mfaVerifyLoading}>
+                    {mfaVerifyLoading ? "Verifying…" : "Verify"}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="w-full"
                     disabled={mfaVerifyLoading}
-                  />
-                </div>
-                <Button type="submit" className="w-full" variant="secondary" disabled={mfaVerifyLoading}>
-                  {mfaVerifyLoading ? "Verifying…" : "Verify"}
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  className="w-full"
-                  disabled={mfaVerifyLoading}
-                  onClick={() => {
-                    setMfaStep(null);
-                    setError("");
-                    setMfaCode("");
-                  }}
-                >
-                  Back to sign in
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
+                    onClick={() => {
+                      setMfaStep(null);
+                      setError("");
+                      setMfaCode("");
+                    }}
+                  >
+                    Back to sign in
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
+          </div>
         </div>
+        <footer className="shrink-0 border-t border-border bg-background py-5 px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+          <div className="w-full max-w-md mx-auto">
+            <Button variant="outline" size="lg" className="w-full" asChild>
+              <Link to="/">Back to home</Link>
+            </Button>
+          </div>
+        </footer>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4 py-10">
-      <div className="w-full max-w-md space-y-6">
-        <Button variant="outline" size="lg" className="w-full" asChild>
-          <Link to="/">Back to home</Link>
-        </Button>
+    <div className="min-h-dvh flex flex-col bg-background">
+      <div className="flex-1 flex items-center justify-center px-4 py-10">
+        <div className="w-full max-w-md space-y-6">
         <div className="text-center">
           <div className="flex justify-center mb-4">
             <BonfireLogo size="lg" />
@@ -256,7 +260,7 @@ export default function LoginPage() {
                     <strong>Admin / Staff / Donor:</strong> use seeded sanctuary.org accounts (passwords 14+ chars from
                     your env).
                   </p>
-                  <p>Enable 2FA from the app after sign-in to test the authenticator step.</p>
+                  <p>Enable 2FA from the program dashboard (Security card) after sign-in to test the authenticator step.</p>
                 </div>
               </div>
             )}
@@ -269,7 +273,15 @@ export default function LoginPage() {
             </p>
           </CardContent>
         </Card>
+        </div>
       </div>
+      <footer className="shrink-0 border-t border-border bg-background py-5 px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+        <div className="w-full max-w-md mx-auto">
+          <Button variant="outline" size="lg" className="w-full" asChild>
+            <Link to="/">Back to home</Link>
+          </Button>
+        </div>
+      </footer>
     </div>
   );
 }

@@ -50,13 +50,13 @@ public class SupportersController : ControllerBase
         var supporterIds = supporters.Select(s => s.SupporterId).ToList();
 
         var now = DateTime.UtcNow;
-        var yearStart = new DateOnly(now.Year, 1, 1);
-        // YTD average = calendar YTD sum divided by current month index (1–12), UTC.
-        var ytdTotal = await _db.Donations.AsNoTracking()
-            .Where(d => d.DonationDate >= yearStart)
+        var today = DateOnly.FromDateTime(now);
+        var twelveMonthsAgo = today.AddMonths(-12);
+        // Rolling 12 months (inclusive of gifts from twelveMonthsAgo through today).
+        var last12Total = await _db.Donations.AsNoTracking()
+            .Where(d => d.DonationDate >= twelveMonthsAgo && d.DonationDate <= today)
             .SumAsync(d => d.Amount ?? d.EstimatedValue ?? 0m);
-        var monthNum = Math.Max(1, now.Month);
-        var avgMonthlyYtd = ytdTotal / monthNum;
+        var avgMonthlyLast12 = last12Total / 12m;
 
         var donationAgg = new Dictionary<int, DonationAgg>();
         if (supporterIds.Count > 0)
@@ -121,55 +121,10 @@ public class SupportersController : ControllerBase
             supporters = listRows,
             summary = new SupporterListSummaryDto
             {
-                YtdDonationTotal = ytdTotal,
-                AvgMonthlyYtd = avgMonthlyYtd
+                Last12MonthsDonationTotal = last12Total,
+                AvgMonthlyLast12 = avgMonthlyLast12
             }
         }));
-    }
-
-    private sealed class DonationAgg
-    {
-        public int Count;
-        public decimal Total;
-        public DateOnly NewestDate;
-        public decimal? LatestAmount;
-    }
-
-    public sealed class SupporterListSummaryDto
-    {
-        public decimal YtdDonationTotal { get; set; }
-        public decimal AvgMonthlyYtd { get; set; }
-    }
-
-    public sealed class SupporterListRowDto
-    {
-        public int SupporterId { get; set; }
-        public string DisplayName { get; set; } = string.Empty;
-        public string SupporterType { get; set; } = string.Empty;
-        public string Status { get; set; } = string.Empty;
-        public string Country { get; set; } = string.Empty;
-        public DateOnly? FirstDonationDate { get; set; }
-        public string AcquisitionChannel { get; set; } = string.Empty;
-        public int DonationCount { get; set; }
-        public decimal TotalLifetimeValue { get; set; }
-        public DateOnly? LastDonationDate { get; set; }
-        public decimal? LatestAmount { get; set; }
-    }
-
-    [HttpGet("{id:int}")]
-    [Authorize(Roles = "Admin,Staff,Donor")]
-    public async Task<ActionResult<ApiResponse<object>>> Get(int id)
-    {
-        if (User.IsInRole("Donor"))
-        {
-            var mine = LinkedSupporterId();
-            if (mine != id)
-                return StatusCode(403, ApiResponse<object>.Fail("Forbidden"));
-        }
-
-        var s = await _db.Supporters.AsNoTracking().FirstOrDefaultAsync(x => x.SupporterId == id);
-        if (s == null) return NotFound(ApiResponse<object>.Fail("Not found"));
-        return Ok(ApiResponse<object>.Ok(s));
     }
 
     [HttpGet("priority-targets")]
@@ -262,6 +217,51 @@ public class SupportersController : ControllerBase
             .ToList();
 
         return Ok(ApiResponse<object>.Ok(ordered));
+    }
+
+    private sealed class DonationAgg
+    {
+        public int Count;
+        public decimal Total;
+        public DateOnly NewestDate;
+        public decimal? LatestAmount;
+    }
+
+    public sealed class SupporterListSummaryDto
+    {
+        public decimal Last12MonthsDonationTotal { get; set; }
+        public decimal AvgMonthlyLast12 { get; set; }
+    }
+
+    public sealed class SupporterListRowDto
+    {
+        public int SupporterId { get; set; }
+        public string DisplayName { get; set; } = string.Empty;
+        public string SupporterType { get; set; } = string.Empty;
+        public string Status { get; set; } = string.Empty;
+        public string Country { get; set; } = string.Empty;
+        public DateOnly? FirstDonationDate { get; set; }
+        public string AcquisitionChannel { get; set; } = string.Empty;
+        public int DonationCount { get; set; }
+        public decimal TotalLifetimeValue { get; set; }
+        public DateOnly? LastDonationDate { get; set; }
+        public decimal? LatestAmount { get; set; }
+    }
+
+    [HttpGet("{id:int}")]
+    [Authorize(Roles = "Admin,Staff,Donor")]
+    public async Task<ActionResult<ApiResponse<object>>> Get(int id)
+    {
+        if (User.IsInRole("Donor"))
+        {
+            var mine = LinkedSupporterId();
+            if (mine != id)
+                return StatusCode(403, ApiResponse<object>.Fail("Forbidden"));
+        }
+
+        var s = await _db.Supporters.AsNoTracking().FirstOrDefaultAsync(x => x.SupporterId == id);
+        if (s == null) return NotFound(ApiResponse<object>.Fail("Not found"));
+        return Ok(ApiResponse<object>.Ok(s));
     }
 
     public sealed class PriorityTargetDto

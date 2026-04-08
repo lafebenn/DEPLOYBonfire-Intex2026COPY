@@ -161,7 +161,7 @@ public class DashboardController : ControllerBase
         );
 
         var highAttentionResidents = attentionRanked
-            .Take(10)
+            .Take(3)
             .Select(a => new
             {
                 a.ResidentId,

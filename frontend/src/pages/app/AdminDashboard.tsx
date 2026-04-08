@@ -20,7 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAuth } from "@/contexts/AuthContext";
-import { Users, Heart, Calendar, TrendingUp, FileText, Clock, Flame, UserPlus } from "lucide-react";
+import { Users, Heart, Calendar, TrendingUp, FileText, Clock, Flame, UserPlus, ShieldCheck } from "lucide-react";
 import { Link } from "react-router-dom";
 import { authApi, dashboardApi } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
@@ -61,6 +61,78 @@ type AdminDashboardData = {
   recentDonations: RecentDonation[];
   highAttentionResidents?: AttentionResident[];
 };
+
+function pickNum(a: unknown, b?: unknown): number {
+  const n = Number(a ?? b);
+  return Number.isFinite(n) ? n : 0;
+}
+
+/** Normalizes /api/dashboard/admin payloads (camelCase or PascalCase, optional arrays). */
+function normalizeAdminDashboard(raw: unknown): AdminDashboardData {
+  const d = raw as Record<string, unknown>;
+  const haRaw = d.highAttentionResidents ?? d.HighAttentionResidents;
+  const list = Array.isArray(haRaw) ? haRaw : [];
+  const highAttentionResidents: AttentionResident[] = list.map((row) => {
+    const r = row as Record<string, unknown>;
+    const f = (r.factors ?? r.Factors) as Record<string, unknown> | undefined;
+    const factors: Record<string, number> = {};
+    if (f && typeof f === "object") {
+      for (const [k, v] of Object.entries(f)) {
+        const n = Number(v);
+        if (Number.isFinite(n)) factors[k] = n;
+      }
+    }
+    return {
+      residentId: pickNum(r.residentId, r.ResidentId),
+      displayName: String(r.displayName ?? r.DisplayName ?? ""),
+      caseControlNo: String(r.caseControlNo ?? r.CaseControlNo ?? ""),
+      internalCode: String(r.internalCode ?? r.InternalCode ?? ""),
+      safehouseName: String(r.safehouseName ?? r.SafehouseName ?? ""),
+      currentRiskLevel: String(r.currentRiskLevel ?? r.CurrentRiskLevel ?? ""),
+      compositeScore: pickNum(r.compositeScore, r.CompositeScore),
+      flameLevel: pickNum(r.flameLevel, r.FlameLevel),
+      factors,
+    };
+  });
+
+  const occ = (d.safehouseOccupancy ?? d.SafehouseOccupancy) as unknown[];
+  const safehouseOccupancy: SafehouseOcc[] = Array.isArray(occ)
+    ? occ.map((x) => {
+        const r = x as Record<string, unknown>;
+        return {
+          safehouseId: pickNum(r.safehouseId, r.SafehouseId),
+          name: String(r.name ?? r.Name ?? ""),
+          currentOccupancy: pickNum(r.currentOccupancy, r.CurrentOccupancy),
+          capacityGirls: pickNum(r.capacityGirls, r.CapacityGirls),
+        };
+      })
+    : [];
+
+  const donations = (d.recentDonations ?? d.RecentDonations) as unknown[];
+  const recentDonations: RecentDonation[] = Array.isArray(donations)
+    ? donations.map((x) => {
+        const r = x as Record<string, unknown>;
+        return {
+          donationId: pickNum(r.donationId, r.DonationId),
+          amount: r.amount != null ? Number(r.amount) : r.Amount != null ? Number(r.Amount) : null,
+          estimatedValue:
+            r.estimatedValue != null ? Number(r.estimatedValue) : r.EstimatedValue != null ? Number(r.EstimatedValue) : null,
+          donationDate: String(r.donationDate ?? r.DonationDate ?? ""),
+          donationType: String(r.donationType ?? r.DonationType ?? ""),
+          supporterName: String(r.supporterName ?? r.SupporterName ?? ""),
+        };
+      })
+    : [];
+
+  return {
+    activeResidentCount: pickNum(d.activeResidentCount, d.ActiveResidentCount),
+    atRiskCount: pickNum(d.atRiskCount, d.AtRiskCount),
+    monthlyDonationTotal: pickNum(d.monthlyDonationTotal, d.MonthlyDonationTotal),
+    safehouseOccupancy,
+    recentDonations,
+    highAttentionResidents,
+  };
+}
 
 const FACTOR_LABELS: Record<string, string> = {
   recordingOverdue: "Process recording gap",
@@ -107,7 +179,8 @@ function attentionRiskBadgeClass(flameLevel: number): string {
   return "border-muted-foreground/25 bg-muted/40 text-muted-foreground";
 }
 
-function topFactorSummary(factors: Record<string, number>): string {
+function topFactorSummary(factors: Record<string, number> | null | undefined): string {
+  if (!factors || typeof factors !== "object") return "No factor breakdown yet.";
   const entries = Object.entries(factors).sort((a, b) => b[1] - a[1]);
   const top = entries.slice(0, 2).filter(([, v]) => v > 5);
   if (top.length === 0) return "No single driver — blended signals";
@@ -125,7 +198,7 @@ function donationLine(d: RecentDonation): string {
 }
 
 export default function AdminDashboard() {
-  const { user } = useAuth();
+  const { user, verifyTwoFactor } = useAuth();
   const { toast } = useToast();
   const [data, setData] = useState<AdminDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -139,12 +212,16 @@ export default function AdminDashboard() {
   const [createLinkedSupporterId, setCreateLinkedSupporterId] = useState("");
   const [createSubmitting, setCreateSubmitting] = useState(false);
 
+  const [twoFaSetup, setTwoFaSetup] = useState<{ sharedKey: string; authenticatorUri: string } | null>(null);
+  const [twoFaCode, setTwoFaCode] = useState("");
+  const [twoFaBusy, setTwoFaBusy] = useState(false);
+
   useEffect(() => {
     dashboardApi
       .admin()
       .then((res) => {
         if (!res.success) throw new Error(res.message || "Failed to load dashboard");
-        setData(res.data as AdminDashboardData);
+        setData(normalizeAdminDashboard(res.data));
       })
       .catch((err: Error) => setError(err.message ?? "Failed to load"))
       .finally(() => setLoading(false));
@@ -220,6 +297,8 @@ export default function AdminDashboard() {
     type: "donation" as const,
   }));
 
+  const attentionList = data.highAttentionResidents ?? [];
+
   return (
     <div className="space-y-8">
       <div>
@@ -232,22 +311,27 @@ export default function AdminDashboard() {
         </p>
       </div>
 
-      {data.highAttentionResidents && data.highAttentionResidents.length > 0 ? (
-        <Card className="border-orange-500/20 bg-gradient-to-br from-orange-500/[0.03] to-transparent">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Flame className="h-6 w-6 text-orange-500" />
-              Residents needing attention
-            </CardTitle>
-            <p className="text-sm text-muted-foreground leading-relaxed">
-              Top {data.highAttentionResidents.length} active cases by composite score: days since last process recording,
-              emotional notes trend across recent sessions, incidents in the last 30 days, education attendance change,
-              health trajectory, latest ML resident-risk prediction, and recorded case risk level.
+      <Card className="border-orange-500/20 bg-gradient-to-br from-orange-500/[0.03] to-transparent">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Flame className="h-6 w-6 text-orange-500" />
+            Residents needing attention
+          </CardTitle>
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            Up to three active cases ranked by composite score: process recording recency, emotional trend across recent
+            sessions, incidents (30 d), education attendance, health trajectory, ML resident-risk prediction, and case risk
+            level.
+          </p>
+        </CardHeader>
+        <CardContent>
+          {attentionList.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-2">
+              No active residents in caseload right now, or scores are still computing. When there are active cases, the
+              highest-need profiles appear here.
             </p>
-          </CardHeader>
-          <CardContent>
+          ) : (
             <ul className="divide-y divide-border rounded-xl border border-border overflow-hidden bg-card">
-              {data.highAttentionResidents.map((r) => (
+              {attentionList.map((r) => (
                 <li key={r.residentId}>
                   <Link
                     to={`/app/caseload/${r.residentId}`}
@@ -276,9 +360,9 @@ export default function AdminDashboard() {
                 </li>
               ))}
             </ul>
-          </CardContent>
-        </Card>
-      ) : null}
+          )}
+        </CardContent>
+      </Card>
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
         {stats.map((s) => (
@@ -296,6 +380,133 @@ export default function AdminDashboard() {
           </Card>
         ))}
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base font-heading">
+            <ShieldCheck className="h-5 w-5 text-primary" />
+            Two-factor authentication
+          </CardTitle>
+          <p className="text-sm text-muted-foreground font-normal leading-relaxed">
+            Add a time-based code from an authenticator app (Google Authenticator, Microsoft Authenticator, Authy, etc.).
+            After you finish setup, sign out and sign in with your password—you will be prompted for a 6-digit code.
+            Google sign-in may not require this code in the current demo.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {user?.twoFactorEnabled ? (
+            <p className="text-sm text-emerald-700 dark:text-emerald-400 font-medium">
+              Two-factor authentication is enabled on your account.
+            </p>
+          ) : twoFaSetup ? (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                In your authenticator app, add an account and either scan the QR from the &quot;Add to app&quot; link or enter
+                this secret key manually.
+              </p>
+              <div className="rounded-lg border border-border bg-muted/40 p-3 font-mono text-xs break-all select-all">
+                {twoFaSetup.sharedKey}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    void navigator.clipboard.writeText(twoFaSetup.sharedKey);
+                    toast({ title: "Copied", description: "Secret key copied to clipboard." });
+                  }}
+                >
+                  Copy secret key
+                </Button>
+                <Button type="button" variant="secondary" size="sm" asChild>
+                  <a href={twoFaSetup.authenticatorUri}>Open in authenticator app</a>
+                </Button>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="dash-2fa-code">6-digit code</Label>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <Input
+                    id="dash-2fa-code"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    placeholder="000000"
+                    value={twoFaCode}
+                    onChange={(e) => setTwoFaCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                    disabled={twoFaBusy}
+                    className="sm:max-w-[12rem]"
+                  />
+                  <Button
+                    type="button"
+                    disabled={twoFaBusy || twoFaCode.length !== 6 || !user?.email}
+                    onClick={async () => {
+                      if (!user?.email) return;
+                      setTwoFaBusy(true);
+                      try {
+                        await verifyTwoFactor(user.email, twoFaCode);
+                        setTwoFaSetup(null);
+                        setTwoFaCode("");
+                        toast({
+                          title: "Two-factor enabled",
+                          description: "Next sign-in will ask for your authenticator code.",
+                        });
+                      } catch (err) {
+                        toast({
+                          title: "Could not verify",
+                          description: err instanceof Error ? err.message : "Check the code and try again.",
+                          variant: "destructive",
+                        });
+                      } finally {
+                        setTwoFaBusy(false);
+                      }
+                    }}
+                  >
+                    {twoFaBusy ? "Verifying…" : "Confirm & enable"}
+                  </Button>
+                </div>
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground"
+                onClick={() => {
+                  setTwoFaSetup(null);
+                  setTwoFaCode("");
+                }}
+                disabled={twoFaBusy}
+              >
+                Cancel setup
+              </Button>
+            </div>
+          ) : (
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={twoFaBusy}
+              onClick={async () => {
+                setTwoFaBusy(true);
+                try {
+                  const res = await authApi.enable2fa();
+                  if (!res.success || !res.data) throw new Error(res.message || "Could not start 2FA setup");
+                  setTwoFaSetup({ sharedKey: res.data.sharedKey, authenticatorUri: res.data.authenticatorUri });
+                  setTwoFaCode("");
+                } catch (err) {
+                  toast({
+                    title: "Setup failed",
+                    description: err instanceof Error ? err.message : "Try again later.",
+                    variant: "destructive",
+                  });
+                } finally {
+                  setTwoFaBusy(false);
+                }
+              }}
+            >
+              {twoFaBusy ? "Starting…" : "Set up authenticator"}
+            </Button>
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">

@@ -192,13 +192,15 @@ public class AuthController : ControllerBase
             return NotFound(ApiResponse<object>.Fail("Not found"));
 
         var roles = await _userManager.GetRolesAsync(user);
+        var twoFactorEnabled = await _userManager.GetTwoFactorEnabledAsync(user);
         return Ok(ApiResponse<object>.Ok(new
         {
             id = user.Id,
             email = user.Email,
             displayName = user.DisplayName,
             role = roles.FirstOrDefault() ?? user.Role,
-            linkedSupporterId = user.LinkedSupporterId
+            linkedSupporterId = user.LinkedSupporterId,
+            twoFactorEnabled
         }));
     }
 
@@ -223,7 +225,7 @@ public class AuthController : ControllerBase
             return BadRequest(ApiResponse<object>.Fail("Could not generate authenticator key."));
 
         var email = user.Email ?? user.UserName ?? "";
-        var issuer = Uri.EscapeDataString("Sanctuary");
+        var issuer = Uri.EscapeDataString("Bonfire");
         var account = Uri.EscapeDataString(email);
         var secret = Uri.EscapeDataString(key);
         var uri = $"otpauth://totp/{issuer}:{account}?secret={secret}&issuer={issuer}&digits=6";
