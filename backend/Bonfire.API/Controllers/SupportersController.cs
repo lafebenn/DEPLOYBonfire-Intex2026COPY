@@ -5,6 +5,8 @@ using Bonfire.API.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace Bonfire.API.Controllers;
 
@@ -16,12 +18,21 @@ public class SupportersController : ControllerBase
     private readonly AppDbContext _db;
     private readonly SanitizerService _s;
     private readonly MlService _ml;
+    private readonly IServiceScopeFactory _scopeFactory;
+    private readonly ILogger<SupportersController> _logger;
 
-    public SupportersController(AppDbContext db, SanitizerService s, MlService ml)
+    public SupportersController(
+        AppDbContext db,
+        SanitizerService s,
+        MlService ml,
+        IServiceScopeFactory scopeFactory,
+        ILogger<SupportersController> logger)
     {
         _db = db;
         _s = s;
         _ml = ml;
+        _scopeFactory = scopeFactory;
+        _logger = logger;
     }
 
     private int? LinkedSupporterId()
@@ -125,6 +136,39 @@ public class SupportersController : ControllerBase
                 AvgMonthlyLast12 = avgMonthlyLast12
             }
         }));
+    }
+
+    /// <summary>
+    /// Same work as <c>POST /api/ml/refresh/supporters</c>, but hosted under <c>/api/supporters/...</c> so gateways
+    /// that only proxy the supporters API still reach donor ML refresh.
+    /// </summary>
+    [HttpPost("ml-refresh-predictions")]
+    [Authorize(Roles = "Admin,Staff")]
+    public ActionResult<ApiResponse<object>> RefreshMlPredictions()
+    {
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                using var scope = _scopeFactory.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var ml = scope.ServiceProvider.GetRequiredService<MlService>();
+                var bgLog = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("Bonfire.MlRefresh");
+                var ids = await db.Supporters.AsNoTracking()
+                    .Where(s => s.Status == "Active")
+                    .Select(s => s.SupporterId)
+                    .ToListAsync();
+                foreach (var id in ids)
+                    await ml.RefreshPredictionsForEntityAsync("Supporter", id);
+                bgLog.LogInformation("ML supporter refresh (via supporters route) completed: {Count} supporters", ids.Count);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "ML supporter refresh (via supporters route) failed");
+            }
+        });
+
+        return Ok(ApiResponse<object>.Ok(new { queued = true }, "Refresh queued"));
     }
 
     [HttpGet("priority-targets")]

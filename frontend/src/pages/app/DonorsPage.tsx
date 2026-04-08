@@ -240,8 +240,7 @@ export default function DonorsPage() {
                   setRefreshing(true);
                   const res = await mlApi.refreshSupporters();
                   if (!res.success) throw new Error(res.message || "Refresh failed");
-                  toast({ title: "Pipeline refresh queued", description: "Re-loading results in a few seconds…" });
-                  await new Promise((r) => setTimeout(r, 1500));
+                  toast({ title: "Pipeline refresh queued", description: "Refreshing priority list from the database…" });
                   await loadTargets();
                 } catch (e) {
                   toast({

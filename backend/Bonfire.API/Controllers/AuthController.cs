@@ -192,15 +192,13 @@ public class AuthController : ControllerBase
             return NotFound(ApiResponse<object>.Fail("Not found"));
 
         var roles = await _userManager.GetRolesAsync(user);
-        var twoFactorEnabled = await _userManager.GetTwoFactorEnabledAsync(user);
         return Ok(ApiResponse<object>.Ok(new
         {
             id = user.Id,
             email = user.Email,
             displayName = user.DisplayName,
             role = roles.FirstOrDefault() ?? user.Role,
-            linkedSupporterId = user.LinkedSupporterId,
-            twoFactorEnabled
+            linkedSupporterId = user.LinkedSupporterId
         }));
     }
 

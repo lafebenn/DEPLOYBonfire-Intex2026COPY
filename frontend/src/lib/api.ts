@@ -96,7 +96,6 @@ export const authApi = {
       displayName: string;
       role: string;
       linkedSupporterId: number | null;
-      twoFactorEnabled?: boolean;
     }>("/api/auth/me");
   },
   async logout() {
@@ -117,9 +116,6 @@ export const authApi = {
       body: JSON.stringify(body),
       skipAuth: true,
     });
-  },
-  async enable2fa() {
-    return request<{ sharedKey: string; authenticatorUri: string }>("/api/auth/enable-2fa", { method: "POST" });
   },
 };
 
@@ -290,7 +286,8 @@ export const mlApi = {
     request<{ id: number }>("/api/ml/predictions", { method: "POST", body: JSON.stringify(body) }),
   latestForEntity: (entityType: string, entityId: number) =>
     request<unknown[]>(`/api/ml/predictions/${encodeURIComponent(entityType)}/${entityId}`),
-  refreshSupporters: () => request<{ queued: boolean }>("/api/ml/refresh/supporters", { method: "POST" }),
+  refreshSupporters: () =>
+    request<{ queued: boolean }>("/api/supporters/ml-refresh-predictions", { method: "POST" }),
 };
 
 /** --- Impact snapshots (public) --- */

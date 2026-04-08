@@ -260,7 +260,7 @@ export default function LoginPage() {
                     <strong>Admin / Staff / Donor:</strong> use seeded sanctuary.org accounts (passwords 14+ chars from
                     your env).
                   </p>
-                  <p>Enable 2FA from the program dashboard (Security card) after sign-in to test the authenticator step.</p>
+                  <p>Two-factor can be re-enabled in the API later; login still supports MFA if already turned on for an account.</p>
                 </div>
               </div>
             )}

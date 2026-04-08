@@ -167,7 +167,9 @@ public static class ResidentAttentionScoreComputer
 
             var display = !string.IsNullOrWhiteSpace(res.InternalCode)
                 ? res.InternalCode.Trim()
-                : res.CaseControlNo;
+                : !string.IsNullOrWhiteSpace(res.CaseControlNo)
+                    ? res.CaseControlNo.Trim()
+                    : $"Resident #{rid}";
 
             results.Add(new AttentionResult
             {

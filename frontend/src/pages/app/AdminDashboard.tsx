@@ -20,7 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAuth } from "@/contexts/AuthContext";
-import { Users, Heart, Calendar, TrendingUp, FileText, Clock, Flame, UserPlus, ShieldCheck } from "lucide-react";
+import { Users, Heart, Calendar, TrendingUp, FileText, Clock, Flame, UserPlus } from "lucide-react";
 import { Link } from "react-router-dom";
 import { authApi, dashboardApi } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
@@ -198,7 +198,7 @@ function donationLine(d: RecentDonation): string {
 }
 
 export default function AdminDashboard() {
-  const { user, verifyTwoFactor } = useAuth();
+  const { user } = useAuth();
   const { toast } = useToast();
   const [data, setData] = useState<AdminDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -211,10 +211,6 @@ export default function AdminDashboard() {
   const [createRole, setCreateRole] = useState<"Admin" | "Staff" | "Donor">("Staff");
   const [createLinkedSupporterId, setCreateLinkedSupporterId] = useState("");
   const [createSubmitting, setCreateSubmitting] = useState(false);
-
-  const [twoFaSetup, setTwoFaSetup] = useState<{ sharedKey: string; authenticatorUri: string } | null>(null);
-  const [twoFaCode, setTwoFaCode] = useState("");
-  const [twoFaBusy, setTwoFaBusy] = useState(false);
 
   useEffect(() => {
     dashboardApi
@@ -380,133 +376,6 @@ export default function AdminDashboard() {
           </Card>
         ))}
       </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base font-heading">
-            <ShieldCheck className="h-5 w-5 text-primary" />
-            Two-factor authentication
-          </CardTitle>
-          <p className="text-sm text-muted-foreground font-normal leading-relaxed">
-            Add a time-based code from an authenticator app (Google Authenticator, Microsoft Authenticator, Authy, etc.).
-            After you finish setup, sign out and sign in with your password—you will be prompted for a 6-digit code.
-            Google sign-in may not require this code in the current demo.
-          </p>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {user?.twoFactorEnabled ? (
-            <p className="text-sm text-emerald-700 dark:text-emerald-400 font-medium">
-              Two-factor authentication is enabled on your account.
-            </p>
-          ) : twoFaSetup ? (
-            <div className="space-y-4">
-              <p className="text-sm text-muted-foreground">
-                In your authenticator app, add an account and either scan the QR from the &quot;Add to app&quot; link or enter
-                this secret key manually.
-              </p>
-              <div className="rounded-lg border border-border bg-muted/40 p-3 font-mono text-xs break-all select-all">
-                {twoFaSetup.sharedKey}
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    void navigator.clipboard.writeText(twoFaSetup.sharedKey);
-                    toast({ title: "Copied", description: "Secret key copied to clipboard." });
-                  }}
-                >
-                  Copy secret key
-                </Button>
-                <Button type="button" variant="secondary" size="sm" asChild>
-                  <a href={twoFaSetup.authenticatorUri}>Open in authenticator app</a>
-                </Button>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="dash-2fa-code">6-digit code</Label>
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <Input
-                    id="dash-2fa-code"
-                    inputMode="numeric"
-                    autoComplete="one-time-code"
-                    placeholder="000000"
-                    value={twoFaCode}
-                    onChange={(e) => setTwoFaCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                    disabled={twoFaBusy}
-                    className="sm:max-w-[12rem]"
-                  />
-                  <Button
-                    type="button"
-                    disabled={twoFaBusy || twoFaCode.length !== 6 || !user?.email}
-                    onClick={async () => {
-                      if (!user?.email) return;
-                      setTwoFaBusy(true);
-                      try {
-                        await verifyTwoFactor(user.email, twoFaCode);
-                        setTwoFaSetup(null);
-                        setTwoFaCode("");
-                        toast({
-                          title: "Two-factor enabled",
-                          description: "Next sign-in will ask for your authenticator code.",
-                        });
-                      } catch (err) {
-                        toast({
-                          title: "Could not verify",
-                          description: err instanceof Error ? err.message : "Check the code and try again.",
-                          variant: "destructive",
-                        });
-                      } finally {
-                        setTwoFaBusy(false);
-                      }
-                    }}
-                  >
-                    {twoFaBusy ? "Verifying…" : "Confirm & enable"}
-                  </Button>
-                </div>
-              </div>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="text-muted-foreground"
-                onClick={() => {
-                  setTwoFaSetup(null);
-                  setTwoFaCode("");
-                }}
-                disabled={twoFaBusy}
-              >
-                Cancel setup
-              </Button>
-            </div>
-          ) : (
-            <Button
-              type="button"
-              variant="secondary"
-              disabled={twoFaBusy}
-              onClick={async () => {
-                setTwoFaBusy(true);
-                try {
-                  const res = await authApi.enable2fa();
-                  if (!res.success || !res.data) throw new Error(res.message || "Could not start 2FA setup");
-                  setTwoFaSetup({ sharedKey: res.data.sharedKey, authenticatorUri: res.data.authenticatorUri });
-                  setTwoFaCode("");
-                } catch (err) {
-                  toast({
-                    title: "Setup failed",
-                    description: err instanceof Error ? err.message : "Try again later.",
-                    variant: "destructive",
-                  });
-                } finally {
-                  setTwoFaBusy(false);
-                }
-              }}
-            >
-              {twoFaBusy ? "Starting…" : "Set up authenticator"}
-            </Button>
-          )}
-        </CardContent>
-      </Card>
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">

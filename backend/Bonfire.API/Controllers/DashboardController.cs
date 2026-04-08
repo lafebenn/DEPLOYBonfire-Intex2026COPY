@@ -35,9 +35,23 @@ public class DashboardController : ControllerBase
         var now = DateTime.UtcNow;
         var monthStart = new DateOnly(now.Year, now.Month, 1);
 
-        var activeResidentCount = await _db.Residents.CountAsync(r => r.CaseStatus == "Active");
+        var activeResidentCount = await _db.Residents.CountAsync(r =>
+            r.CaseStatus == "Active"
+            || r.CaseStatus == "Open"
+            || r.CaseStatus == "In Progress"
+            || r.CaseStatus == "Enrolled"
+            || (r.CaseStatus != "Closed"
+                && r.CaseStatus != "Archived"
+                && r.CaseStatus != "Discharged"
+                && r.CaseStatus != "Inactive"
+                && r.CaseStatus != "Completed"));
 
-        var preds = await _db.MlPredictions.AsNoTracking().ToListAsync();
+        // Avoid loading the entire MlPredictions table (can hang or time out); only rows we need for this dashboard.
+        var preds = await _db.MlPredictions.AsNoTracking()
+            .Where(p =>
+                (p.PredictionType == "ResidentRiskFlag" && p.EntityType == "Resident")
+                || (p.PredictionType == "DonorLapseRisk" && p.EntityType == "Supporter"))
+            .ToListAsync();
         var residentRiskLatest = LatestPerEntity(preds, "ResidentRiskFlag", "Resident");
         var atRisk = residentRiskLatest.Where(p => p.Score > 0.5m).ToList();
         var atRiskCount = atRisk.Count;
@@ -109,7 +123,16 @@ public class DashboardController : ControllerBase
         var monthAgo = today.AddDays(-30);
 
         var activeResidentRows = await _db.Residents.AsNoTracking()
-            .Where(r => r.CaseStatus == "Active")
+            .Where(r =>
+                r.CaseStatus == "Active"
+                || r.CaseStatus == "Open"
+                || r.CaseStatus == "In Progress"
+                || r.CaseStatus == "Enrolled"
+                || (r.CaseStatus != "Closed"
+                    && r.CaseStatus != "Archived"
+                    && r.CaseStatus != "Discharged"
+                    && r.CaseStatus != "Inactive"
+                    && r.CaseStatus != "Completed"))
             .Select(r => new ResidentAttentionScoreComputer.ActiveResidentRow
             {
                 ResidentId = r.ResidentId,
