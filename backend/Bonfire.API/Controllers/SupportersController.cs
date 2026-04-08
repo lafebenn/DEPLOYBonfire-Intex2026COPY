@@ -3,6 +3,7 @@ using Bonfire.API.Infrastructure;
 using Bonfire.API.Models;
 using Bonfire.API.Services;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -19,6 +20,7 @@ public class SupportersController : ControllerBase
     private readonly SanitizerService _s;
     private readonly MlService _ml;
     private readonly IServiceScopeFactory _scopeFactory;
+    private readonly UserManager<AppUser> _userManager;
     private readonly ILogger<SupportersController> _logger;
 
     public SupportersController(
@@ -26,19 +28,15 @@ public class SupportersController : ControllerBase
         SanitizerService s,
         MlService ml,
         IServiceScopeFactory scopeFactory,
+        UserManager<AppUser> userManager,
         ILogger<SupportersController> logger)
     {
         _db = db;
         _s = s;
         _ml = ml;
         _scopeFactory = scopeFactory;
+        _userManager = userManager;
         _logger = logger;
-    }
-
-    private int? LinkedSupporterId()
-    {
-        var v = User.Claims.FirstOrDefault(c => c.Type == "linkedSupporterId")?.Value;
-        return int.TryParse(v, out var id) ? id : null;
     }
 
     [HttpGet]
@@ -310,7 +308,7 @@ public class SupportersController : ControllerBase
     {
         if (User.IsInRole("Donor"))
         {
-            var mine = LinkedSupporterId();
+            var mine = await DonorSupporterResolver.ResolveOrEnsureLinkedSupporterIdAsync(User, _db, _userManager, _logger);
             if (mine != id)
                 return StatusCode(403, ApiResponse<object>.Fail("Forbidden"));
         }

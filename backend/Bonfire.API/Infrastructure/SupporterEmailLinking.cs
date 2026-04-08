@@ -1,4 +1,5 @@
 using Bonfire.API.Data;
+using Bonfire.API.Models;
 using Microsoft.EntityFrameworkCore;
 
 namespace Bonfire.API.Infrastructure;
@@ -34,5 +35,54 @@ public static class SupporterEmailLinking
         }
 
         return matches[0].SupporterId;
+    }
+
+    /// <summary>
+    /// Returns existing supporter id for this email, or creates a new <see cref="Supporter"/> when none exist.
+    /// Does not create a row when multiple supporters already share the email (ambiguous).
+    /// </summary>
+    public static async Task<int?> TryEnsureSupporterIdForDonorEmailAsync(
+        AppDbContext db,
+        string email,
+        string displayName,
+        string acquisitionChannel,
+        ILogger logger,
+        CancellationToken ct = default)
+    {
+        var resolved = await TryResolveSupporterIdAsync(db, email, logger, ct);
+        if (resolved.HasValue)
+            return resolved.Value;
+
+        var normalized = email.Trim();
+        if (string.IsNullOrEmpty(normalized))
+            return null;
+
+        var dupCount = await db.Supporters.AsNoTracking()
+            .CountAsync(s => s.Email.ToLower() == normalized.ToLower(), ct);
+        if (dupCount > 1)
+        {
+            logger.LogWarning("Cannot auto-create supporter for {Email}: multiple rows already exist", normalized);
+            return null;
+        }
+
+        var name = string.IsNullOrWhiteSpace(displayName) ? normalized.Split('@')[0] : displayName.Trim();
+        var supporter = new Supporter
+        {
+            SupporterType = "Individual",
+            DisplayName = name,
+            Email = normalized,
+            Phone = "",
+            Region = "",
+            Country = "Philippines",
+            Status = "Active",
+            RelationshipType = "Donor",
+            AcquisitionChannel = string.IsNullOrWhiteSpace(acquisitionChannel) ? "Online" : acquisitionChannel.Trim(),
+            CreatedAt = DateTime.UtcNow
+        };
+
+        db.Supporters.Add(supporter);
+        await db.SaveChangesAsync(ct);
+        logger.LogInformation("Created supporter {SupporterId} for donor email {Email}", supporter.SupporterId, normalized);
+        return supporter.SupporterId;
     }
 }
