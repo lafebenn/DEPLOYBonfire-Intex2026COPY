@@ -1,0 +1,15 @@
+case_control_no,reintegration_status,reintegration_type,composite_score,current_trend,latest_delta,psych_score,family_score,education_score,health_score,intervention_score,behavioral_score
+C4279,On Hold,Family Reunification,63.3,Regressing,-5.880000000000003,72.9,63.1,73.5,50.9,20.0,100.0
+C7521,In Progress,Family Reunification,64.6,Regressing,-9.769999999999996,81.5,63.1,76.1,54.8,10.0,80.0
+C3752,Not Started,Adoption (Domestic),65.6,Regressing,-9.659999999999997,82.0,61.8,68.0,52.1,30.0,64.0
+C7286,In Progress,Family Reunification,66.0,Regressing,-7.079999999999998,80.8,57.7,72.3,55.3,30.0,92.0
+C3233,In Progress,Independent Living,68.2,Regressing,-5.310000000000002,82.9,69.2,72.9,45.4,60.0,56.0
+C7587,On Hold,None,69.0,Regressing,-11.870000000000005,80.8,,71.3,55.2,40.0,100.0
+C3706,Not Started,Foster Care,61.3,Stalling,1.8300000000000054,78.6,65.0,38.6,51.3,40.0,100.0
+C7232,In Progress,Adoption (Domestic),64.7,Stalling,0.4300000000000068,79.8,63.5,67.5,55.9,20.0,100.0
+C6335,In Progress,Family Reunification,66.1,Stalling,0.45000000000000284,81.3,60.0,71.6,49.3,40.0,100.0
+C9903,In Progress,Foster Care,66.3,Stalling,-0.2600000000000051,80.3,56.7,58.8,54.2,73.3,96.0
+C2616,In Progress,Foster Care,67.1,Stalling,-1.460000000000008,76.9,72.1,64.5,51.4,50.0,84.0
+C0794,In Progress,Adoption (Inter-Country),68.4,Stalling,-1.4399999999999977,72.0,81.2,75.8,58.0,20.0,84.0
+C5996,In Progress,Adoption (Domestic),68.5,Stalling,0.009999999999990905,79.2,63.9,72.1,52.5,50.0,88.0
+C3951,On Hold,Adoption (Inter-Country),68.5,Stalling,0.4899999999999949,79.0,60.0,74.8,54.0,53.3,68.0
