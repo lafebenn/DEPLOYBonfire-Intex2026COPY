@@ -1,28 +1,19 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { residentsApi, safehousesApi } from "@/lib/api";
-
-const programs = ["Residential", "Outpatient", "Aftercare"];
-const statuses = ["Active", "Transitioning", "Completed"] as const;
+import type { ResidentCaseWrite } from "@/lib/residentCaseWrite";
+import { defaultIntakeForm, toApiWriteBody } from "@/lib/residentCaseWrite";
+import { ResidentCaseFormFields, type SafehouseOption } from "@/components/ResidentCaseFormFields";
 
 export default function NewIntakePage() {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const defaultAdmitted = useMemo(() => new Date().toISOString().slice(0, 10), []);
-
-  const [residentId, setResidentId] = useState("");
-  const [name, setName] = useState("");
-  const [program, setProgram] = useState<string>(programs[0]);
-  const [status, setStatus] = useState<(typeof statuses)[number]>("Active");
-  const [admitted, setAdmitted] = useState(defaultAdmitted);
-  const [safehouseId, setSafehouseId] = useState<number | null>(null);
+  const [form, setForm] = useState<ResidentCaseWrite>(() => defaultIntakeForm());
+  const [safehouses, setSafehouses] = useState<SafehouseOption[]>([]);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -31,36 +22,33 @@ export default function NewIntakePage() {
       .list()
       .then((res) => {
         if (!res.success) return;
-        const list = res.data as { safehouseId: number }[];
-        if (list.length > 0) setSafehouseId(list[0].safehouseId);
+        const list = (res.data as SafehouseOption[]) ?? [];
+        setSafehouses(list);
+        if (list.length > 0) {
+          setForm((f) => (f.safehouseId > 0 ? f : { ...f, safehouseId: list[0].safehouseId }));
+        }
       })
       .catch(() => {});
   }, []);
 
+  const patch = useCallback(<K extends keyof ResidentCaseWrite>(key: K, value: ResidentCaseWrite[K]) => {
+    setForm((f) => ({ ...f, [key]: value }));
+  }, []);
+
   const canSubmit =
-    residentId.trim().length > 0 &&
-    name.trim().length > 0 &&
-    admitted.trim().length > 0 &&
-    safehouseId != null;
-
-  function dateOfBirthFromAdmission(admissionIso: string): string {
-    const d = new Date(admissionIso + "T12:00:00");
-    d.setFullYear(d.getFullYear() - 12);
-    return d.toISOString().slice(0, 10);
-  }
-
-  function mapCaseStatus(s: (typeof statuses)[number]): string {
-    if (s === "Completed") return "Closed";
-    if (s === "Transitioning") return "Active";
-    return s;
-  }
+    form.caseControlNo.trim().length > 0 &&
+    form.internalCode.trim().length > 0 &&
+    form.safehouseId > 0 &&
+    form.dateOfBirth.trim().length > 0 &&
+    form.dateOfAdmission.trim().length > 0 &&
+    form.dateEnrolled.trim().length > 0;
 
   return (
     <div className="space-y-6">
       <div>
         <h2 className="font-heading text-2xl font-bold">New Intake</h2>
         <p className="text-muted-foreground text-sm mt-1">
-          Create a new case intake (stored locally for now).
+          Create a resident case with the same fields used when editing a profile. All data is saved to the API.
         </p>
       </div>
 
@@ -68,75 +56,12 @@ export default function NewIntakePage() {
 
       <Card className="card-warm">
         <CardHeader>
-          <CardTitle>Case details</CardTitle>
+          <CardTitle>Case record</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-5">
-          <div className="grid md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="residentId">Resident ID</Label>
-              <Input
-                id="residentId"
-                placeholder="R-2026-001"
-                value={residentId}
-                onChange={(e) => setResidentId(e.target.value)}
-                autoComplete="off"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="name">Display name</Label>
-              <Input
-                id="name"
-                placeholder="Jane D."
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                autoComplete="off"
-              />
-            </div>
-          </div>
+        <CardContent className="space-y-6">
+          <ResidentCaseFormFields form={form} patch={patch} safehouses={safehouses} idPrefix="intake" />
 
-          <div className="grid md:grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label>Program</Label>
-              <Select value={program} onValueChange={setProgram}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {programs.map((p) => (
-                    <SelectItem key={p} value={p}>
-                      {p}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Status</Label>
-              <Select value={status} onValueChange={(v) => setStatus(v as (typeof statuses)[number])}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {statuses.map((s) => (
-                    <SelectItem key={s} value={s}>
-                      {s}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="admitted">Admission date</Label>
-              <Input
-                id="admitted"
-                type="date"
-                value={admitted}
-                onChange={(e) => setAdmitted(e.target.value)}
-              />
-            </div>
-          </div>
-
-          <div className="flex items-center justify-end gap-3">
+          <div className="flex items-center justify-end gap-3 pt-2 border-t border-border">
             <Button variant="outline" onClick={() => navigate("/app/caseload")}>
               Cancel
             </Button>
@@ -145,65 +70,23 @@ export default function NewIntakePage() {
               onClick={() => {
                 setSubmitError(null);
                 setSubmitting(true);
-                const dob = dateOfBirthFromAdmission(admitted);
-                const body = {
-                  caseControlNo: residentId.trim(),
-                  internalCode: name.trim(),
-                  safehouseId: safehouseId!,
-                  caseStatus: mapCaseStatus(status),
-                  sex: "F",
-                  dateOfBirth: dob,
-                  birthStatus: "Live Birth",
-                  placeOfBirth: "",
-                  religion: "",
-                  caseCategory: program,
-                  subCatOrphaned: false,
-                  subCatTrafficked: false,
-                  subCatChildLabor: false,
-                  subCatPhysicalAbuse: false,
-                  subCatSexualAbuse: false,
-                  subCatOsaec: false,
-                  subCatCicl: false,
-                  subCatAtRisk: false,
-                  subCatStreetChild: false,
-                  subCatChildWithHiv: false,
-                  isPwd: false,
-                  pwdType: null as string | null,
-                  hasSpecialNeeds: false,
-                  specialNeedsDiagnosis: null as string | null,
-                  familyIs4ps: false,
-                  familySoloParent: false,
-                  familyIndigenous: false,
-                  familyParentPwd: false,
-                  familyInformalSettler: false,
-                  dateOfAdmission: admitted,
-                  referralSource: "Intake form",
-                  referringAgencyPerson: "",
-                  assignedSocialWorker: "TBD",
-                  initialCaseAssessment: "Pending intake review",
-                  reintegrationType: null as string | null,
-                  reintegrationStatus: null as string | null,
-                  initialRiskLevel: "Low",
-                  currentRiskLevel: "Low",
-                  dateEnrolled: admitted,
-                  dateClosed: null as string | null,
-                  notesRestricted: null as string | null,
-                };
                 residentsApi
-                  .create(body)
+                  .create(toApiWriteBody(form))
                   .then((res) => {
                     if (!res.success) throw new Error(res.message || "Failed to create intake");
+                    const id = (res.data as { id?: number })?.id;
+                    if (id == null || Number.isNaN(id)) throw new Error("Invalid response from server");
                     toast({
                       title: "Intake created",
-                      description: `Added ${residentId.trim()} to the caseload.`,
+                      description: `${form.caseControlNo.trim()} was added to the caseload.`,
                     });
-                    navigate("/app/caseload");
+                    navigate(`/app/caseload/${id}`);
                   })
                   .catch((err: Error) => setSubmitError(err.message ?? "Failed to save"))
                   .finally(() => setSubmitting(false));
               }}
             >
-              Save intake
+              {submitting ? "Saving…" : "Save intake"}
             </Button>
           </div>
         </CardContent>

@@ -2,7 +2,7 @@ import { Outlet, Link } from "react-router-dom";
 import { NavLink } from "@/components/NavLink";
 import { BonfireLogo } from "@/components/BonfireLogo";
 import { Button } from "@/components/ui/button";
-import { CookieConsentBanner } from "@/components/CookieConsentBanner";
+import { CookieConsentBanner, CookieSettingsLink } from "@/components/CookieConsentBanner";
 import { useAuth } from "@/contexts/AuthContext";
 
 export default function PublicLayout() {
@@ -85,6 +85,7 @@ export default function PublicLayout() {
             <nav className="flex items-center gap-6 text-sm text-muted-foreground">
               <Link to="/privacy" className="hover:text-foreground transition-colors">Privacy Policy</Link>
               <Link to="/cookies" className="hover:text-foreground transition-colors">Cookie Policy</Link>
+              <CookieSettingsLink className="hover:text-foreground transition-colors text-left" />
               <Link to="/impact" className="hover:text-foreground transition-colors">Our Impact</Link>
               <Link to="/donate" className="hover:text-foreground transition-colors">Donate</Link>
             </nav>

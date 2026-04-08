@@ -117,6 +117,57 @@ export function residentGetToWritePayload(raw: Record<string, unknown>): Residen
   };
 }
 
+/** Default form state for new intake (API-safe after safehouse is chosen). */
+export function defaultIntakeForm(): ResidentCaseWrite {
+  const today = new Date().toISOString().slice(0, 10);
+  const d = new Date(today + "T12:00:00");
+  d.setFullYear(d.getFullYear() - 12);
+  const defaultDob = d.toISOString().slice(0, 10);
+  return {
+    caseControlNo: "",
+    internalCode: "",
+    safehouseId: 0,
+    caseStatus: "Active",
+    sex: "F",
+    dateOfBirth: defaultDob,
+    birthStatus: "Live Birth",
+    placeOfBirth: "",
+    religion: "",
+    caseCategory: "",
+    subCatOrphaned: false,
+    subCatTrafficked: false,
+    subCatChildLabor: false,
+    subCatPhysicalAbuse: false,
+    subCatSexualAbuse: false,
+    subCatOsaec: false,
+    subCatCicl: false,
+    subCatAtRisk: false,
+    subCatStreetChild: false,
+    subCatChildWithHiv: false,
+    isPwd: false,
+    pwdType: null,
+    hasSpecialNeeds: false,
+    specialNeedsDiagnosis: null,
+    familyIs4ps: false,
+    familySoloParent: false,
+    familyIndigenous: false,
+    familyParentPwd: false,
+    familyInformalSettler: false,
+    dateOfAdmission: today,
+    referralSource: "",
+    referringAgencyPerson: "",
+    assignedSocialWorker: "",
+    initialCaseAssessment: "",
+    reintegrationType: null,
+    reintegrationStatus: null,
+    initialRiskLevel: "Low",
+    currentRiskLevel: "Low",
+    dateEnrolled: today,
+    dateClosed: null,
+    notesRestricted: null,
+  };
+}
+
 export function toApiWriteBody(form: ResidentCaseWrite): Record<string, unknown> {
   const trimOrNull = (s: string | null) => {
     if (s == null) return null;
