@@ -51,6 +51,8 @@ export default function CaseloadPage() {
   const [allResidents, setAllResidents] = useState<ResidentRow[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [pageNum, setPageNum] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   useEffect(() => {
     residentsApi
