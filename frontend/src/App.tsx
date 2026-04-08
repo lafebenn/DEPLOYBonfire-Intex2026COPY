@@ -104,8 +104,22 @@ const App = () => (
               <Route path="process-recording" element={<ProcessRecordingPage />} />
               <Route path="home-visits" element={<HomeVisitsPage />} />
               <Route path="case-conferences" element={<CaseConferencesPage />} />
-              <Route path="donors" element={<DonorsPage />} />
-              <Route path="donors/:supporterId" element={<SupporterProfilePage />} />
+              <Route
+                path="donors"
+                element={
+                  <ProtectedRoute roles={["admin"]}>
+                    <DonorsPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="donors/:supporterId"
+                element={
+                  <ProtectedRoute roles={["admin"]}>
+                    <SupporterProfilePage />
+                  </ProtectedRoute>
+                }
+              />
               <Route path="reports" element={<ReportsPage />} />
               <Route path="intake/new" element={<NewIntakePage />} />
               <Route path="visits/new" element={<NewVisitPage />} />

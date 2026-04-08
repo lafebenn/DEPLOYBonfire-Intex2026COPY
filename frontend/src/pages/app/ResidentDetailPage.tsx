@@ -133,6 +133,8 @@ export default function ResidentDetailPage() {
   const idNum = residentId ? Number(residentId) : NaN;
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
 
   const [resident, setResident] = useState<ResidentApi | null>(null);
   const [writeSnapshot, setWriteSnapshot] = useState<ResidentCaseWrite | null>(null);
@@ -315,10 +317,12 @@ export default function ResidentDetailPage() {
               <Pencil className="h-4 w-4 mr-2" />
               Edit case
             </Button>
-            <Button variant="destructive" size="sm" onClick={() => setDeleteOpen(true)}>
-              <Trash2 className="h-4 w-4 mr-2" />
-              Delete case
-            </Button>
+            {isAdmin && (
+              <Button variant="destructive" size="sm" onClick={() => setDeleteOpen(true)}>
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete case
+              </Button>
+            )}
             <Button variant="outline" size="sm" asChild>
               <Link to={`/app/recordings/new?residentId=${resident.residentId}`}>
                 <FileText className="h-4 w-4 mr-2" />

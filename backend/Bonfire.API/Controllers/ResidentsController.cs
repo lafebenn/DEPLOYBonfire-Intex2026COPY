@@ -174,6 +174,7 @@ public class ResidentsController : ControllerBase
     }
 
     [HttpDelete("{id:int}")]
+    [Authorize(Roles = "Admin")]
     public async Task<ActionResult<ApiResponse<object>>> Delete(int id)
     {
         if (!DeleteConfirmation.IsConfirmed(Request.Query))
