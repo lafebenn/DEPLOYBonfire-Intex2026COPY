@@ -1,22 +1,13 @@
+import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  MOCK_SOCIAL_KPIS,
-  MOCK_PLATFORM_SUMMARY,
-  MOCK_CONTENT_TYPES,
-  MOCK_BEST_DAYS,
-  MOCK_BEST_HOURS,
-  MOCK_STRATEGY_RECOMMENDATIONS,
-} from "@/lib/socialMediaMock";
-import { Lightbulb, Megaphone, Share2, TrendingUp } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { socialMediaApi } from "@/lib/api";
+import { ExternalLink, Lightbulb, Megaphone, Share2, Sparkles, TrendingUp } from "lucide-react";
 
 function formatPhp(n: number) {
   return new Intl.NumberFormat("en-PH", {
@@ -66,9 +57,112 @@ function BarRow({ label, value, max }: { label: string; value: number; max: numb
   );
 }
 
+type DatePreset = "last30" | "last90" | "ytd" | "all" | "custom";
+
+function startOfUtcDay(d: Date): Date {
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 0, 0, 0));
+}
+
+function toDateInputValue(d: Date): string {
+  // yyyy-mm-dd in UTC, so it stays stable across time zones.
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(d.getUTCDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function parseDateInputValue(v: string): Date | null {
+  // Interpret date input as a UTC date boundary.
+  if (!v) return null;
+  const [y, m, d] = v.split("-").map((x) => Number(x));
+  if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return null;
+  return new Date(Date.UTC(y, m - 1, d, 0, 0, 0));
+}
+
 export default function SocialMediaInsightsPage() {
-  const maxDay = Math.max(...MOCK_BEST_DAYS.map((d) => d.score), 0.01);
-  const maxHour = Math.max(...MOCK_BEST_HOURS.map((h) => h.score), 0.01);
+  const [data, setData] = useState<any | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [preset, setPreset] = useState<DatePreset>("last30");
+  const [customFrom, setCustomFrom] = useState<string>("");
+  const [customTo, setCustomTo] = useState<string>("");
+
+  const queryParams = useMemo(() => {
+    const now = new Date();
+    const to = now;
+
+    if (preset === "all") {
+      // SQL Server datetime doesn't support year 0001; use a safe early date.
+      return {
+        dateFrom: "1900-01-01T00:00:00.000Z",
+        dateTo: to.toISOString(),
+      };
+    }
+
+    if (preset === "ytd") {
+      const ytd = new Date(Date.UTC(now.getUTCFullYear(), 0, 1, 0, 0, 0));
+      return { dateFrom: ytd.toISOString(), dateTo: to.toISOString() };
+    }
+
+    if (preset === "last90") {
+      const from = startOfUtcDay(new Date(to.getTime() - 90 * 24 * 60 * 60 * 1000));
+      return { dateFrom: from.toISOString(), dateTo: to.toISOString() };
+    }
+
+    if (preset === "custom") {
+      const from = parseDateInputValue(customFrom);
+      const toDate = parseDateInputValue(customTo) ?? startOfUtcDay(to);
+      if (!from) return null;
+      return { dateFrom: from.toISOString(), dateTo: toDate.toISOString() };
+    }
+
+    // last30 default
+    const from = startOfUtcDay(new Date(to.getTime() - 30 * 24 * 60 * 60 * 1000));
+    return { dateFrom: from.toISOString(), dateTo: to.toISOString() };
+  }, [preset, customFrom, customTo]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+
+    (async () => {
+      try {
+        const res = await socialMediaApi.analytics(queryParams ?? undefined);
+        if (!res.success) throw new Error(res.message || "Failed to load social analytics");
+        if (!cancelled) setData(res.data);
+      } catch (e) {
+        if (!cancelled) setError(e instanceof Error ? e.message : "Failed to load");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [queryParams]);
+
+  const periodLabel = useMemo(() => {
+    const from = data?.period?.dateFrom ? new Date(data.period.dateFrom) : null;
+    const to = data?.period?.dateTo ? new Date(data.period.dateTo) : null;
+    if (!from || !to) return "Last 30 days";
+    return `${from.toLocaleDateString()} – ${to.toLocaleDateString()}`;
+  }, [data]);
+
+  const kpis = data?.kpis ?? null;
+  const platformSummary = (data?.platformSummary ?? []) as any[];
+  const contentTypes = (data?.contentTypes ?? []) as any[];
+  const bestDays = (data?.bestDays ?? []) as any[];
+  const bestHours = (data?.bestHours ?? []) as any[];
+  const insights = (data?.insights ?? []) as string[];
+  const topPosts = (data?.topPosts ?? []) as any[];
+
+  const maxDay = Math.max(...bestDays.map((d) => Number(d.score) || 0), 0.01);
+  const maxHour = Math.max(...bestHours.map((h) => Number(h.score) || 0), 0.01);
+
+  if (loading) return <div className="p-8 text-muted-foreground">Loading...</div>;
+  if (error) return <div className="p-8 text-destructive">{error}</div>;
 
   return (
     <div className="space-y-8">
@@ -76,9 +170,9 @@ export default function SocialMediaInsightsPage() {
         <div>
           <div className="flex items-center gap-2 mb-2">
             <Badge variant="secondary" className="font-normal">
-              Demo data
+              Live
             </Badge>
-            <span className="text-xs text-muted-foreground">{MOCK_SOCIAL_KPIS.periodLabel}</span>
+            <span className="text-xs text-muted-foreground">{periodLabel}</span>
           </div>
           <h2 className="font-heading text-2xl font-bold flex items-center gap-2">
             <Share2 className="h-7 w-7 text-primary shrink-0" />
@@ -87,9 +181,46 @@ export default function SocialMediaInsightsPage() {
           <p className="text-muted-foreground text-sm mt-2 max-w-2xl leading-relaxed">
             Bonfire helps your team see what actually moves <strong>donations</strong> versus{" "}
             <strong>engagement alone</strong>, so you can post with purpose on a lean schedule.
-            This view will connect to your operational database when APIs are wired; numbers below are
-            illustrative.
+            This view is computed from your social posts table and will later include ML recommendations.
           </p>
+        </div>
+
+        <div className="w-full sm:w-auto">
+          <div className="grid gap-3 sm:justify-items-end">
+            <div className="grid gap-2">
+              <Label className="text-xs text-muted-foreground">Date range</Label>
+              <Select value={preset} onValueChange={(v) => setPreset(v as DatePreset)}>
+                <SelectTrigger className="w-full sm:w-56">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="last30">Last 30 days</SelectItem>
+                  <SelectItem value="last90">Last 90 days</SelectItem>
+                  <SelectItem value="ytd">Year to date</SelectItem>
+                  <SelectItem value="all">All time</SelectItem>
+                  <SelectItem value="custom">Custom</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {preset === "custom" ? (
+              <div className="grid grid-cols-2 gap-2 w-full sm:w-56">
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">From</Label>
+                  <Input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">To</Label>
+                  <Input
+                    type="date"
+                    value={customTo}
+                    onChange={(e) => setCustomTo(e.target.value)}
+                    placeholder={toDateInputValue(new Date())}
+                  />
+                </div>
+              </div>
+            ) : null}
+          </div>
         </div>
       </div>
 
@@ -102,8 +233,8 @@ export default function SocialMediaInsightsPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-heading font-bold">{formatPhp(MOCK_SOCIAL_KPIS.socialAttributedDonationsPhp)}</p>
-            <p className="text-xs text-muted-foreground mt-1">Estimated from referral tags</p>
+            <p className="text-2xl font-heading font-bold">{formatPhp(Number(kpis?.socialAttributedDonationsPhp ?? 0))}</p>
+            <p className="text-xs text-muted-foreground mt-1">Estimated donation value attributed to social posts</p>
           </CardContent>
         </Card>
         <Card>
@@ -114,9 +245,9 @@ export default function SocialMediaInsightsPage() {
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-heading font-bold">
-              {(MOCK_SOCIAL_KPIS.avgEngagementRate * 100).toFixed(2)}%
+              {(Number(kpis?.avgEngagementRate ?? 0) * 100).toFixed(2)}%
             </p>
-            <p className="text-xs text-muted-foreground mt-1">(likes + comments + shares) ÷ reach</p>
+            <p className="text-xs text-muted-foreground mt-1">(likes + comments + shares + saves) ÷ reach</p>
           </CardContent>
         </Card>
         <Card>
@@ -126,8 +257,8 @@ export default function SocialMediaInsightsPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-heading font-bold">{formatReach(MOCK_SOCIAL_KPIS.reach)}</p>
-            <p className="text-xs text-muted-foreground mt-1">{MOCK_SOCIAL_KPIS.totalPosts} posts in period</p>
+            <p className="text-2xl font-heading font-bold">{formatReach(Number(kpis?.reach ?? 0))}</p>
+            <p className="text-xs text-muted-foreground mt-1">{Number(kpis?.totalPosts ?? 0)} posts in period</p>
           </CardContent>
         </Card>
         <Card>
@@ -137,8 +268,8 @@ export default function SocialMediaInsightsPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-heading font-bold">{MOCK_SOCIAL_KPIS.postsPerWeek}</p>
-            <p className="text-xs text-muted-foreground mt-1">Posts per week (avg.). Aim 12-16.</p>
+            <p className="text-2xl font-heading font-bold">{Number(kpis?.postsPerWeek ?? 0)}</p>
+            <p className="text-xs text-muted-foreground mt-1">Posts per week (avg.)</p>
           </CardContent>
         </Card>
       </div>
@@ -163,24 +294,21 @@ export default function SocialMediaInsightsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {MOCK_PLATFORM_SUMMARY.map((row) => (
+                {platformSummary.map((row) => (
                   <TableRow key={row.platform}>
                     <TableCell className="font-medium">{row.platform}</TableCell>
                     <TableCell className="text-right tabular-nums">{formatReach(row.reach)}</TableCell>
                     <TableCell className="text-right tabular-nums">
-                      {(row.avgEngagementRate * 100).toFixed(2)}%
+                      {(Number(row.avgEngagementRate ?? 0) * 100).toFixed(2)}%
                     </TableCell>
                     <TableCell className="text-right tabular-nums">{row.donationReferrals}</TableCell>
                     <TableCell className="text-right tabular-nums hidden md:table-cell">
-                      {formatPhp(row.estimatedDonationPhp)}
+                      {formatPhp(Number(row.estimatedDonationPhp ?? 0))}
                     </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
-            <p className="text-xs text-muted-foreground mt-3">
-              Top platform by gifts (demo): <strong>{MOCK_SOCIAL_KPIS.topPlatform}</strong>. Validate with your next campaign UTM tags.
-            </p>
           </CardContent>
         </Card>
 
@@ -188,15 +316,15 @@ export default function SocialMediaInsightsPage() {
           <CardHeader>
             <CardTitle className="font-heading text-lg flex items-center gap-2">
               <Lightbulb className="h-5 w-5 text-primary" />
-              Strategic recommendations
+              Actionable insights
             </CardTitle>
             <p className="text-sm text-muted-foreground font-normal">
-              Plain-language next steps your founders can act on without a marketing team.
+              Plain-language next steps based on current database signals.
             </p>
           </CardHeader>
           <CardContent>
             <ul className="space-y-3 text-sm leading-relaxed">
-              {MOCK_STRATEGY_RECOMMENDATIONS.map((line, i) => (
+              {insights.map((line, i) => (
                 <li key={i} className="flex gap-2">
                   <span className="text-primary font-bold shrink-0">{i + 1}.</span>
                   <span>
@@ -204,10 +332,71 @@ export default function SocialMediaInsightsPage() {
                   </span>
                 </li>
               ))}
+              {insights.length === 0 ? <li className="text-muted-foreground text-sm">No insights available yet.</li> : null}
             </ul>
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="font-heading text-lg flex items-center gap-2">
+            <ExternalLink className="h-5 w-5 text-primary" />
+            Top content (by estimated donation value)
+          </CardTitle>
+          <p className="text-sm text-muted-foreground font-normal">Replicate what’s working. Click through to review the post and its CTA.</p>
+        </CardHeader>
+        <CardContent className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Platform</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead className="text-right">Reach</TableHead>
+                <TableHead className="text-right">Eng.</TableHead>
+                <TableHead className="text-right">Ref.</TableHead>
+                <TableHead className="text-right">Est. PHP</TableHead>
+                <TableHead className="text-right">Open</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {topPosts.map((p) => {
+                const reach = Number(p.reach ?? 0);
+                const interactions = Number(p.likes ?? 0) + Number(p.comments ?? 0) + Number(p.shares ?? 0) + Number(p.saves ?? 0);
+                const er = reach > 0 ? interactions / reach : 0;
+                return (
+                  <TableRow key={p.postId}>
+                    <TableCell className="font-medium">{p.platform}</TableCell>
+                    <TableCell>{p.postType}</TableCell>
+                    <TableCell className="text-right tabular-nums">{formatReach(reach)}</TableCell>
+                    <TableCell className="text-right tabular-nums">{(er * 100).toFixed(2)}%</TableCell>
+                    <TableCell className="text-right tabular-nums">{Number(p.donationReferrals ?? 0)}</TableCell>
+                    <TableCell className="text-right tabular-nums">{formatPhp(Number(p.estimatedDonationValuePhp ?? 0))}</TableCell>
+                    <TableCell className="text-right">
+                      {p.postUrl ? (
+                        <Button asChild size="sm" variant="outline">
+                          <a href={p.postUrl} target="_blank" rel="noreferrer">
+                            View
+                          </a>
+                        </Button>
+                      ) : (
+                        "—"
+                      )}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+              {topPosts.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-sm text-muted-foreground">
+                    No posts in this date range.
+                  </TableCell>
+                </TableRow>
+              ) : null}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
@@ -221,20 +410,22 @@ export default function SocialMediaInsightsPage() {
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="grid gap-4 md:grid-cols-2">
-            {MOCK_CONTENT_TYPES.map((c) => (
+            {contentTypes.map((c) => (
               <div
                 key={c.postType}
                 className="rounded-xl border border-border p-4 bg-card hover:bg-accent/30 transition-colors"
               >
                 <div className="flex items-center justify-between gap-2 mb-2">
-                  <p className="font-medium">{c.label}</p>
-                  <Badge variant="outline">{c.posts} posts</Badge>
+                  <p className="font-medium">{c.postType}</p>
+                  <Badge variant="outline">{Number(c.posts ?? 0)} posts</Badge>
                 </div>
                 <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground mb-2">
-                  <span>Avg. likes: <strong className="text-foreground">{c.avgLikes}</strong></span>
-                  <span>Donation refs: <strong className="text-foreground">{c.donationReferrals}</strong></span>
+                  <span>Avg. likes: <strong className="text-foreground">{Number(c.avgLikes ?? 0)}</strong></span>
+                  <span>Donation refs: <strong className="text-foreground">{Number(c.donationReferrals ?? 0)}</strong></span>
                 </div>
-                <p className="text-sm text-muted-foreground leading-snug">{c.notes}</p>
+                <p className="text-sm text-muted-foreground leading-snug">
+                  Est. donation value: <strong className="text-foreground">{formatPhp(Number(c.estimatedDonationPhp ?? 0))}</strong>
+                </p>
               </div>
             ))}
           </div>
@@ -246,12 +437,12 @@ export default function SocialMediaInsightsPage() {
           <CardHeader>
             <CardTitle className="font-heading text-lg">Best days to post</CardTitle>
             <p className="text-sm text-muted-foreground font-normal">
-              Relative composite score (reach + engagement + referrals). Demo.
+              Relative composite score (reach + engagement + referrals).
             </p>
           </CardHeader>
           <CardContent className="space-y-3">
-            {MOCK_BEST_DAYS.map((d) => (
-              <BarRow key={d.day} label={d.day} value={d.score} max={maxDay} />
+            {bestDays.map((d) => (
+              <BarRow key={d.day} label={d.day} value={Number(d.score ?? 0)} max={maxDay} />
             ))}
           </CardContent>
         </Card>
@@ -259,16 +450,31 @@ export default function SocialMediaInsightsPage() {
           <CardHeader>
             <CardTitle className="font-heading text-lg">Best times (local)</CardTitle>
             <p className="text-sm text-muted-foreground font-normal">
-              Evening slots often win for donations; test with scheduled posts.
+              Test with scheduled posts to confirm.
             </p>
           </CardHeader>
           <CardContent className="space-y-3">
-            {MOCK_BEST_HOURS.map((h) => (
-              <BarRow key={h.hour} label={h.label} value={h.score} max={maxHour} />
+            {bestHours.map((h) => (
+              <BarRow key={h.hour} label={`${String(h.hour).padStart(2, "0")}:00`} value={Number(h.score ?? 0)} max={maxHour} />
             ))}
           </CardContent>
         </Card>
       </div>
+
+      <Card className="border-dashed">
+        <CardHeader>
+          <CardTitle className="font-heading text-lg flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-primary" />
+            ML recommendations (coming soon)
+          </CardTitle>
+          <p className="text-sm text-muted-foreground font-normal">
+            Reserved for predicted donation lift, next-best post suggestions, and experiment planning once the ML pipeline is enabled.
+          </p>
+        </CardHeader>
+        <CardContent className="text-sm text-muted-foreground">
+          Today’s view uses deterministic rollups from your existing `SocialMediaPosts` rows.
+        </CardContent>
+      </Card>
     </div>
   );
 }

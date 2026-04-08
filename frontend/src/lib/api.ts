@@ -263,6 +263,12 @@ export const socialMediaApi = {
     const s = q.toString();
     return request<unknown[]>(`/api/social-media-posts${s ? `?${s}` : ""}`);
   },
+  analytics: (params?: Record<string, string | undefined>) => {
+    const q = new URLSearchParams();
+    if (params) Object.entries(params).forEach(([k, v]) => v && q.set(k, v));
+    const s = q.toString();
+    return request<unknown>(`/api/social-media-posts/analytics${s ? `?${s}` : ""}`);
+  },
   get: (id: number) => request<unknown>(`/api/social-media-posts/${id}`),
   create: (body: unknown) =>
     request<{ id: number }>("/api/social-media-posts", { method: "POST", body: JSON.stringify(body) }),
