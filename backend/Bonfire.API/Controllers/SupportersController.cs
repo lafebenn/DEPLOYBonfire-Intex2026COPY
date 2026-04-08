@@ -386,7 +386,7 @@ public class SupportersController : ControllerBase
     }
 
     [HttpPut("{id:int}")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,Staff")]
     public async Task<ActionResult<ApiResponse<object>>> Update(int id, [FromBody] SupporterWriteDto dto)
     {
         var e = await _db.Supporters.FindAsync(id);

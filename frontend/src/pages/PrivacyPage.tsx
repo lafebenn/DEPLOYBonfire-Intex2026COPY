@@ -57,7 +57,8 @@ export default function PrivacyPage() {
               a high level for security monitoring.
             </li>
             <li>
-              <strong>Cookie consent choice</strong>: your cookie consent selection (Accept/Decline) stored to remember your preference.
+              <strong>Cookie consent choice</strong>: your selection (necessary-only vs preferences allowed), stored under{" "}
+              <code className="text-sm">bonfire_consent_v1</code> in <code className="text-sm">localStorage</code>, including a policy version and timestamp.
             </li>
           </ul>
 
@@ -229,7 +230,7 @@ export default function PrivacyPage() {
           <h2 className="font-heading text-2xl font-semibold mt-8">11. Withdrawing consent</h2>
           <p className="text-muted-foreground leading-relaxed">
             Where we rely on your consent, you can withdraw it at any time by contacting us at <strong>privacy@bonfiresanctuary.org</strong> or using in-product controls where
-            available (for example, cookie preferences via our cookie banner). Marketing emails, where we send them, will include an unsubscribe link where required.
+            available (for example, cookie preferences via our cookie banner and <strong>Cookie settings</strong> in the site footer). Marketing emails, where we send them, will include an unsubscribe link where required.
             Withdrawing consent does not affect the lawfulness of processing before you withdrew it.
           </p>
 

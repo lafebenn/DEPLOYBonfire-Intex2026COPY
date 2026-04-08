@@ -4,6 +4,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { CookieConsentProvider } from "@/contexts/CookieConsentContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 
 import PublicLayout from "@/layouts/PublicLayout";
@@ -60,6 +61,7 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
+          <CookieConsentProvider>
           <Routes>
             {/* Public routes */}
             <Route element={<PublicLayout />}>
@@ -126,6 +128,7 @@ const App = () => (
 
             <Route path="*" element={<NotFound />} />
           </Routes>
+          </CookieConsentProvider>
         </BrowserRouter>
       </TooltipProvider>
     </AuthProvider>
