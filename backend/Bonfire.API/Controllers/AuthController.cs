@@ -38,6 +38,30 @@ public class AuthController : ControllerBase
         _db = db;
     }
 
+    /// <summary>Donors must have <see cref="AppUser.LinkedSupporterId"/> for portal donations; create a supporter row if none match by email.</summary>
+    private async Task EnsureDonorLinkedSupporterAsync(AppUser user, string acquisitionChannel)
+    {
+        if (!await _userManager.IsInRoleAsync(user, "Donor") || user.LinkedSupporterId.HasValue)
+            return;
+
+        var email = user.Email ?? user.UserName;
+        if (string.IsNullOrWhiteSpace(email))
+            return;
+
+        var sid = await SupporterEmailLinking.TryEnsureSupporterIdForDonorEmailAsync(
+            _db,
+            email,
+            user.DisplayName ?? "",
+            acquisitionChannel,
+            _logger);
+
+        if (!sid.HasValue)
+            return;
+
+        user.LinkedSupporterId = sid;
+        await _userManager.UpdateAsync(user);
+    }
+
     public class RegisterRequest
     {
         public string Email { get; set; } = string.Empty;
@@ -95,7 +119,11 @@ public class AuthController : ControllerBase
             }
             else
             {
-                linkedId = await SupporterEmailLinking.TryResolveSupporterIdAsync(_db, req.Email.Trim(), _logger);
+                linkedId = await SupporterEmailLinking.TryEnsureSupporterIdForDonorEmailAsync(
+                    _db, req.Email.Trim(), req.DisplayName.Trim(), "StaffCreatedDonor", _logger);
+                if (!linkedId.HasValue)
+                    return BadRequest(ApiResponse<object>.Fail(
+                        "Could not link donor to a supporter profile (ambiguous email in database)."));
             }
         }
         else if (req.LinkedSupporterId.HasValue)
@@ -134,7 +162,11 @@ public class AuthController : ControllerBase
         if (await _userManager.FindByEmailAsync(email) != null)
             return Conflict(ApiResponse<object>.Fail("An account with this email already exists."));
 
-        var linkedId = await SupporterEmailLinking.TryResolveSupporterIdAsync(_db, email, _logger);
+        var linkedId = await SupporterEmailLinking.TryEnsureSupporterIdForDonorEmailAsync(
+            _db, email, req.DisplayName.Trim(), "SelfRegistration", _logger);
+        if (!linkedId.HasValue)
+            return BadRequest(ApiResponse<object>.Fail(
+                "Could not create supporter profile for this email. If the problem persists, contact support."));
 
         var user = new AppUser
         {
@@ -173,6 +205,8 @@ public class AuthController : ControllerBase
             return StatusCode(423, ApiResponse<object>.Fail("Account locked."));
         if (!chk.Succeeded)
             return BadRequest(ApiResponse<object>.Fail("Invalid credentials."));
+
+        await EnsureDonorLinkedSupporterAsync(user, "PasswordLogin");
 
         if (await _userManager.GetTwoFactorEnabledAsync(user))
         {
@@ -253,6 +287,8 @@ public class AuthController : ControllerBase
         if (!await _userManager.GetTwoFactorEnabledAsync(user))
             await _userManager.SetTwoFactorEnabledAsync(user, true);
 
+        await EnsureDonorLinkedSupporterAsync(user, "PasswordLogin");
+
         var token = await _jwt.CreateTokenAsync(user, _userManager);
         return Ok(ApiResponse<object>.Ok(new { token }));
     }
@@ -285,20 +321,17 @@ public class AuthController : ControllerBase
             var user = await _userManager.FindByEmailAsync(email);
             if (user != null)
             {
-                if (await _userManager.IsInRoleAsync(user, "Donor") && user.LinkedSupporterId == null)
-                {
-                    var sid = await SupporterEmailLinking.TryResolveSupporterIdAsync(_db, email, _logger);
-                    if (sid.HasValue)
-                    {
-                        user.LinkedSupporterId = sid;
-                        await _userManager.UpdateAsync(user);
-                    }
-                }
+                await EnsureDonorLinkedSupporterAsync(user, "GoogleOAuth");
             }
             else
             {
                 var name = payload.Name ?? email.Split('@')[0];
-                var linkedId = await SupporterEmailLinking.TryResolveSupporterIdAsync(_db, email, _logger);
+                var linkedId = await SupporterEmailLinking.TryEnsureSupporterIdForDonorEmailAsync(
+                    _db, email, name, "GoogleOAuth", _logger);
+                if (!linkedId.HasValue)
+                    return BadRequest(ApiResponse<object>.Fail(
+                        "Could not create supporter profile for this Google account. If the problem persists, contact support."));
+
                 user = new AppUser
                 {
                     UserName = email,

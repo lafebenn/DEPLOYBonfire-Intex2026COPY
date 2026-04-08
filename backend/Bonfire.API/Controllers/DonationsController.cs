@@ -3,6 +3,7 @@ using Bonfire.API.Infrastructure;
 using Bonfire.API.Models;
 using Bonfire.API.Services;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -15,17 +16,19 @@ public class DonationsController : ControllerBase
 {
     private readonly AppDbContext _db;
     private readonly SanitizerService _s;
+    private readonly UserManager<AppUser> _userManager;
+    private readonly ILogger<DonationsController> _logger;
 
-    public DonationsController(AppDbContext db, SanitizerService s)
+    public DonationsController(
+        AppDbContext db,
+        SanitizerService s,
+        UserManager<AppUser> userManager,
+        ILogger<DonationsController> logger)
     {
         _db = db;
         _s = s;
-    }
-
-    private int? LinkedSupporterId()
-    {
-        var v = User.Claims.FirstOrDefault(c => c.Type == "linkedSupporterId")?.Value;
-        return int.TryParse(v, out var id) ? id : null;
+        _userManager = userManager;
+        _logger = logger;
     }
 
     [HttpGet]
@@ -51,7 +54,7 @@ public class DonationsController : ControllerBase
     [Authorize(Roles = "Donor")]
     public async Task<ActionResult<ApiResponse<object>>> MyDonations()
     {
-        var mine = LinkedSupporterId();
+        var mine = await DonorSupporterResolver.ResolveOrEnsureLinkedSupporterIdAsync(User, _db, _userManager, _logger);
         if (!mine.HasValue)
             return BadRequest(ApiResponse<object>.Fail("Donor account is not linked to a supporter profile."));
 
@@ -91,7 +94,7 @@ public class DonationsController : ControllerBase
 
         if (User.IsInRole("Donor"))
         {
-            var mine = LinkedSupporterId();
+            var mine = await DonorSupporterResolver.ResolveOrEnsureLinkedSupporterIdAsync(User, _db, _userManager, _logger);
             if (mine != d.SupporterId)
                 return StatusCode(403, ApiResponse<object>.Fail("Forbidden"));
         }
@@ -232,7 +235,7 @@ public class DonationsController : ControllerBase
     [Authorize(Roles = "Donor")]
     public async Task<ActionResult<ApiResponse<object>>> CreateMyDonation([FromBody] DonorDonationWriteDto dto)
     {
-        var mine = LinkedSupporterId();
+        var mine = await DonorSupporterResolver.ResolveOrEnsureLinkedSupporterIdAsync(User, _db, _userManager, _logger);
         if (!mine.HasValue)
             return BadRequest(ApiResponse<object>.Fail("Donor account is not linked to a supporter profile."));
 
