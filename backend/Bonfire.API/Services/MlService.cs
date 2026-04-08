@@ -1,4 +1,5 @@
 using System.Net.Http.Json;
+using System.Text;
 using System.Text.Json;
 using Bonfire.API.Data;
 using Bonfire.API.Models;
@@ -34,7 +35,7 @@ public class MlService
         GetOrRefreshAsync("ResidentRiskFlag", "Resident", residentId, async () =>
         {
             var body = await BuildResidentRiskBodyAsync(residentId);
-            return await PostPredictAsync("/predict/resident-risk", body);
+            return await PostResidentRiskV1Async(body);
         });
 
     public Task<decimal> GetSocialMediaDonationScoreAsync(int postId) =>
@@ -93,10 +94,10 @@ public class MlService
         if (cached != null && (!cached.ExpiresAt.HasValue || cached.ExpiresAt > now))
             return cached.Score;
 
-        var baseUrl = _config["RailwayMl:BaseUrl"];
+        var baseUrl = _config["ML_API_URL"];
         if (string.IsNullOrWhiteSpace(baseUrl))
         {
-            _logger.LogWarning("Railway ML BaseUrl not configured; returning cached or zero for {Type} {Id}", predictionType, entityId);
+            _logger.LogWarning("ML_API_URL not configured; returning cached or zero for {Type} {Id}", predictionType, entityId);
             return cached?.Score ?? 0m;
         }
 
@@ -129,12 +130,58 @@ public class MlService
     private async Task<(decimal Score, string? Label, string? FeatureJson, string ModelVersion)> PostPredictAsync(string path, object body)
     {
         var json = JsonSerializer.Serialize(body, JsonOpts);
-        using var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
+        using var content = new StringContent(json, Encoding.UTF8, "application/json");
         var resp = await _http.PostAsync(path, content);
         resp.EnsureSuccessStatusCode();
         var dto = await resp.Content.ReadFromJsonAsync<MlScoreResponse>(JsonOpts)
                   ?? throw new InvalidOperationException("Empty ML response");
         return (dto.Score, dto.Label, json, dto.ModelVersion ?? "unknown");
+    }
+
+    /// <summary>POST /v1/resident-risk/predict with a one-row feature array (FastAPI contract).</summary>
+    private async Task<(decimal Score, string? Label, string? FeatureJson, string ModelVersion)> PostResidentRiskV1Async(object featureRow)
+    {
+        var featureJson = JsonSerializer.Serialize(featureRow, JsonOpts);
+        var payload = JsonSerializer.Serialize(new[] { featureRow }, JsonOpts);
+        using var content = new StringContent(payload, Encoding.UTF8, "application/json");
+        var resp = await _http.PostAsync("/v1/resident-risk/predict", content);
+        resp.EnsureSuccessStatusCode();
+        var text = await resp.Content.ReadAsStringAsync();
+        var (score, label, version) = ParseFlexibleMlScore(text);
+        return (score, label, featureJson, version);
+    }
+
+    private static (decimal Score, string? Label, string ModelVersion) ParseFlexibleMlScore(string json)
+    {
+        using var doc = JsonDocument.Parse(json);
+        var root = doc.RootElement;
+        var row = root;
+        if (root.ValueKind == JsonValueKind.Array && root.GetArrayLength() > 0)
+            row = root[0];
+
+        decimal score = 0;
+        string? label = null;
+        var version = "unknown";
+
+        if (row.ValueKind == JsonValueKind.Object)
+        {
+            if (row.TryGetProperty("score", out var s))
+                score = s.GetDecimal();
+            else if (row.TryGetProperty("Score", out var s2))
+                score = s2.GetDecimal();
+
+            if (row.TryGetProperty("label", out var l))
+                label = l.GetString();
+            else if (row.TryGetProperty("Label", out var l2))
+                label = l2.GetString();
+
+            if (row.TryGetProperty("modelVersion", out var m))
+                version = m.GetString() ?? "unknown";
+            else if (row.TryGetProperty("ModelVersion", out var m2))
+                version = m2.GetString() ?? "unknown";
+        }
+
+        return (score, label, version);
     }
 
     private async Task<object> BuildDonorLapseBodyAsync(int supporterId)

@@ -18,9 +18,57 @@ export type ApiResponse<T> = {
 };
 
 function getBaseUrl(): string {
-  const u = import.meta.env.VITE_API_URL as string | undefined;
-  if (!u) throw new Error("VITE_API_URL is not set");
+  const u = (import.meta.env.VITE_API_BASE_URL ?? import.meta.env.VITE_API_URL) as string | undefined;
+  if (!u) throw new Error("VITE_API_BASE_URL or VITE_API_URL must be set");
   return u.replace(/\/$/, "");
+}
+
+/** Base URL for the ASP.NET API (same as all `request()` calls). */
+export function getApiBaseUrl(): string {
+  return getBaseUrl();
+}
+
+/** Raw JSON from GET /api/prediction/resident-risk/{id} (ML proxy; not wrapped in ApiResponse). */
+export async function fetchResidentRiskPrediction(residentId: number): Promise<unknown> {
+  const base = getBaseUrl();
+  const t = getStoredToken();
+  if (!t) throw new Error("Sign in required");
+  const res = await fetch(`${base}/api/prediction/resident-risk/${residentId}`, {
+    headers: { Authorization: `Bearer ${t}`, Accept: "application/json" },
+  });
+  const text = await res.text();
+  if (!res.ok) {
+    let msg = text || res.statusText;
+    try {
+      const err = JSON.parse(text) as { error?: string; detail?: string };
+      if (typeof err.error === "string" && err.error) msg = err.error;
+      else if (typeof err.detail === "string" && err.detail) msg = err.detail;
+    } catch {
+      /* use msg as-is */
+    }
+    throw new Error(msg);
+  }
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    return text;
+  }
+}
+
+/** Best-effort score from ML JSON object or single-element array. */
+export function pickMlResidentRiskScore(raw: unknown): number | null {
+  if (raw == null) return null;
+  if (typeof raw === "object" && !Array.isArray(raw)) {
+    const o = raw as Record<string, unknown>;
+    const s = o.score ?? o.Score;
+    if (typeof s === "number" && Number.isFinite(s)) return s;
+  }
+  if (Array.isArray(raw) && raw.length > 0 && raw[0] != null && typeof raw[0] === "object") {
+    const o = raw[0] as Record<string, unknown>;
+    const s = o.score ?? o.Score;
+    if (typeof s === "number" && Number.isFinite(s)) return s;
+  }
+  return null;
 }
 
 async function request<T>(

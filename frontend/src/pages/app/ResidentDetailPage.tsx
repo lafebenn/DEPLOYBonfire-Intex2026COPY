@@ -25,7 +25,7 @@ import {
   Users,
   AlertTriangle,
 } from "lucide-react";
-import { residentsApi } from "@/lib/api";
+import { fetchResidentRiskPrediction, pickMlResidentRiskScore, residentsApi } from "@/lib/api";
 import { ResidentCaseEditDialog } from "@/components/ResidentCaseEditDialog";
 import { residentGetToWritePayload, type ResidentCaseWrite } from "@/lib/residentCaseWrite";
 import { useToast } from "@/hooks/use-toast";
@@ -145,6 +145,9 @@ export default function ResidentDetailPage() {
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
+  const [mlPred, setMlPred] = useState<unknown>(null);
+  const [mlPredLoading, setMlPredLoading] = useState(false);
+  const [mlPredError, setMlPredError] = useState<string | null>(null);
 
   const loadResident = useCallback(() => {
     if (!residentId || Number.isNaN(idNum)) return;
@@ -183,6 +186,30 @@ export default function ResidentDetailPage() {
     }
     loadResident();
   }, [residentId, idNum, loadResident]);
+
+  useEffect(() => {
+    if (!resident) {
+      setMlPred(null);
+      setMlPredError(null);
+      return;
+    }
+    let cancelled = false;
+    setMlPredLoading(true);
+    setMlPredError(null);
+    fetchResidentRiskPrediction(resident.residentId)
+      .then((data) => {
+        if (!cancelled) setMlPred(data);
+      })
+      .catch((e: unknown) => {
+        if (!cancelled) setMlPredError(e instanceof Error ? e.message : "Could not load prediction");
+      })
+      .finally(() => {
+        if (!cancelled) setMlPredLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [resident?.residentId]);
 
   async function handleDelete() {
     setDeleteBusy(true);
@@ -349,6 +376,36 @@ export default function ResidentDetailPage() {
                   Current: {resident.currentRiskLevel}
                 </Badge>
               </div>
+            </div>
+            <div className="rounded-lg border border-border/60 bg-muted/20 p-3 space-y-2">
+              <p className="text-xs font-medium text-foreground">ML risk estimate (via API)</p>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Served by the Bonfire API proxy; the browser does not call the Python service directly.
+              </p>
+              {mlPredLoading ? (
+                <p className="text-xs text-muted-foreground">Loading…</p>
+              ) : mlPredError ? (
+                <p className="text-xs text-destructive">{mlPredError}</p>
+              ) : (
+                (() => {
+                  const s = pickMlResidentRiskScore(mlPred);
+                  if (s != null) {
+                    return (
+                      <p className="text-sm">
+                        Score: <span className="font-mono font-semibold">{s.toFixed(4)}</span>
+                      </p>
+                    );
+                  }
+                  if (mlPred != null && typeof mlPred === "object") {
+                    return (
+                      <pre className="text-[10px] leading-snug overflow-auto max-h-36 text-muted-foreground">
+                        {JSON.stringify(mlPred, null, 2)}
+                      </pre>
+                    );
+                  }
+                  return <p className="text-xs text-muted-foreground">No data</p>;
+                })()
+              )}
             </div>
             <Separator />
             <DetailRow label="Reintegration type" value={resident.reintegrationType ?? "N/A"} />

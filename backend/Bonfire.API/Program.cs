@@ -118,15 +118,28 @@ builder.Services.AddRateLimiter(options =>
             }));
 });
 
+builder.Services.AddHttpClient();
+
+builder.Services.AddHttpClient("MlApi", (sp, client) =>
+{
+    var cfg = sp.GetRequiredService<IConfiguration>();
+    var baseUrl = cfg["ML_API_URL"]?.Trim().TrimEnd('/');
+    if (!string.IsNullOrWhiteSpace(baseUrl))
+        client.BaseAddress = new Uri(baseUrl + "/");
+    var key = cfg["ML_API_KEY"] ?? Environment.GetEnvironmentVariable("ML_API_KEY");
+    if (!string.IsNullOrWhiteSpace(key))
+        client.DefaultRequestHeaders.TryAddWithoutValidation("X-API-Key", key);
+});
+
 builder.Services.AddHttpClient<MlService>((sp, client) =>
 {
     var cfg = sp.GetRequiredService<IConfiguration>();
-    var baseUrl = cfg["RailwayMl:BaseUrl"]?.Trim().TrimEnd('/');
+    var baseUrl = cfg["ML_API_URL"]?.Trim().TrimEnd('/');
     if (!string.IsNullOrWhiteSpace(baseUrl))
         client.BaseAddress = new Uri(baseUrl + "/");
-    var key = cfg["RailwayMl:ApiKey"] ?? Environment.GetEnvironmentVariable("RailwayMl__ApiKey");
+    var key = cfg["ML_API_KEY"] ?? Environment.GetEnvironmentVariable("ML_API_KEY");
     if (!string.IsNullOrWhiteSpace(key))
-        client.DefaultRequestHeaders.TryAddWithoutValidation("X-Api-Key", key);
+        client.DefaultRequestHeaders.TryAddWithoutValidation("X-API-Key", key);
 });
 
 builder.Services.AddHostedService<MlRefreshBackgroundService>();
