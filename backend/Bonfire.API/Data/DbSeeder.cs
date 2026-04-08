@@ -28,6 +28,9 @@ public static class DbSeeder
                        ?? configuration["SeedPasswords:Staff"];
         var donorPwd = Environment.GetEnvironmentVariable("SEED_DONOR_PASSWORD")
                        ?? configuration["SeedPasswords:Donor"];
+        var forceResetSeedPasswords =
+            string.Equals(Environment.GetEnvironmentVariable("SEED_FORCE_RESET_PASSWORDS"), "true", StringComparison.OrdinalIgnoreCase)
+            || configuration.GetValue<bool>("SeedPasswords:ForceReset");
 
         if (string.IsNullOrWhiteSpace(adminPwd) || string.IsNullOrWhiteSpace(staffPwd) ||
             string.IsNullOrWhiteSpace(donorPwd))
@@ -56,9 +59,9 @@ public static class DbSeeder
             await db.SaveChangesAsync();
         }
 
-        await EnsureUserAsync(userManager, logger, "admin@sanctuary.org", adminPwd, "Admin User", "Admin", null);
-        await EnsureUserAsync(userManager, logger, "staff@sanctuary.org", staffPwd, "Staff User", "Staff", null);
-        await EnsureUserAsync(userManager, logger, "donor@sanctuary.org", donorPwd, "Donor User", "Donor", seedSupporter.SupporterId);
+        await EnsureUserAsync(userManager, logger, "admin@sanctuary.org", adminPwd, "Admin User", "Admin", null, forceResetSeedPasswords);
+        await EnsureUserAsync(userManager, logger, "staff@sanctuary.org", staffPwd, "Staff User", "Staff", null, forceResetSeedPasswords);
+        await EnsureUserAsync(userManager, logger, "donor@sanctuary.org", donorPwd, "Donor User", "Donor", seedSupporter.SupporterId, forceResetSeedPasswords);
     }
 
     private static async Task EnsureUserAsync(
@@ -68,11 +71,38 @@ public static class DbSeeder
         string password,
         string displayName,
         string role,
-        int? linkedSupporterId)
+        int? linkedSupporterId,
+        bool forceResetPassword)
     {
         var existing = await userManager.FindByEmailAsync(email);
         if (existing != null)
+        {
+            // Keep seed accounts consistent across runs in dev when requested.
+            if (linkedSupporterId.HasValue && existing.LinkedSupporterId != linkedSupporterId)
+                existing.LinkedSupporterId = linkedSupporterId;
+            if (!string.Equals(existing.DisplayName, displayName, StringComparison.Ordinal))
+                existing.DisplayName = displayName;
+            if (!string.Equals(existing.Role, role, StringComparison.Ordinal))
+                existing.Role = role;
+
+            await userManager.UpdateAsync(existing);
+
+            if (!await userManager.IsInRoleAsync(existing, role))
+                await userManager.AddToRoleAsync(existing, role);
+
+            if (forceResetPassword)
+            {
+                var token = await userManager.GeneratePasswordResetTokenAsync(existing);
+                var reset = await userManager.ResetPasswordAsync(existing, token, password);
+                if (!reset.Succeeded)
+                    logger.LogError("Failed to reset seed password for {Email}: {Errors}", email,
+                        string.Join("; ", reset.Errors.Select(e => e.Description)));
+                else
+                    logger.LogInformation("Reset seed password for {Email}", email);
+            }
+
             return;
+        }
 
         var user = new AppUser
         {

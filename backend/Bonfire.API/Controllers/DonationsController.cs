@@ -112,6 +112,16 @@ public class DonationsController : ControllerBase
         public string? Notes { get; set; }
         public int? CreatedByPartnerId { get; set; }
         public int? ReferralPostId { get; set; }
+        public List<DonationAllocationWriteDto> Allocations { get; set; } = new();
+    }
+
+    public class DonationAllocationWriteDto
+    {
+        public int SafehouseId { get; set; }
+        public string ProgramArea { get; set; } = string.Empty;
+        public decimal AmountAllocated { get; set; }
+        public DateOnly? AllocationDate { get; set; }
+        public string? AllocationNotes { get; set; }
     }
 
     [HttpPost]
@@ -138,6 +148,39 @@ public class DonationsController : ControllerBase
         };
         _db.Donations.Add(e);
         await _db.SaveChangesAsync();
+
+        if (dto.Allocations.Count > 0)
+        {
+            var safehouseIds = dto.Allocations.Select(a => a.SafehouseId).Distinct().ToList();
+            var existingSafehouses = await _db.Safehouses.AsNoTracking()
+                .Where(s => safehouseIds.Contains(s.SafehouseId))
+                .Select(s => s.SafehouseId)
+                .ToListAsync();
+            var existingSet = existingSafehouses.ToHashSet();
+            if (safehouseIds.Any(id => !existingSet.Contains(id)))
+                return BadRequest(ApiResponse<object>.Fail("One or more allocations reference an invalid safehouse."));
+
+            var allocDate = dto.DonationDate;
+            var allocs = dto.Allocations
+                .Where(a => a.AmountAllocated > 0)
+                .Select(a => new DonationAllocation
+                {
+                    DonationId = e.DonationId,
+                    SafehouseId = a.SafehouseId,
+                    ProgramArea = _s.Sanitize(a.ProgramArea) ?? "",
+                    AmountAllocated = a.AmountAllocated,
+                    AllocationDate = a.AllocationDate ?? allocDate,
+                    AllocationNotes = _s.Sanitize(a.AllocationNotes)
+                })
+                .ToList();
+
+            if (allocs.Count > 0)
+            {
+                _db.DonationAllocations.AddRange(allocs);
+                await _db.SaveChangesAsync();
+            }
+        }
+
         return StatusCode(201, ApiResponse<object>.Ok(new { id = e.DonationId }));
     }
 
@@ -208,6 +251,39 @@ public class DonationsController : ControllerBase
         e.Notes = _s.Sanitize(dto.Notes);
         e.CreatedByPartnerId = dto.CreatedByPartnerId;
         e.ReferralPostId = dto.ReferralPostId;
+
+        // Replace allocations (simple, explicit behavior).
+        var existing = await _db.DonationAllocations.Where(a => a.DonationId == e.DonationId).ToListAsync();
+        if (existing.Count > 0) _db.DonationAllocations.RemoveRange(existing);
+
+        if (dto.Allocations.Count > 0)
+        {
+            var safehouseIds = dto.Allocations.Select(a => a.SafehouseId).Distinct().ToList();
+            var existingSafehouses = await _db.Safehouses.AsNoTracking()
+                .Where(s => safehouseIds.Contains(s.SafehouseId))
+                .Select(s => s.SafehouseId)
+                .ToListAsync();
+            var existingSet = existingSafehouses.ToHashSet();
+            if (safehouseIds.Any(shId => !existingSet.Contains(shId)))
+                return BadRequest(ApiResponse<object>.Fail("One or more allocations reference an invalid safehouse."));
+
+            var allocDate = dto.DonationDate;
+            var allocs = dto.Allocations
+                .Where(a => a.AmountAllocated > 0)
+                .Select(a => new DonationAllocation
+                {
+                    DonationId = e.DonationId,
+                    SafehouseId = a.SafehouseId,
+                    ProgramArea = _s.Sanitize(a.ProgramArea) ?? "",
+                    AmountAllocated = a.AmountAllocated,
+                    AllocationDate = a.AllocationDate ?? allocDate,
+                    AllocationNotes = _s.Sanitize(a.AllocationNotes)
+                })
+                .ToList();
+
+            if (allocs.Count > 0) _db.DonationAllocations.AddRange(allocs);
+        }
+
         await _db.SaveChangesAsync();
         return Ok(ApiResponse<object>.Ok(null, "Updated"));
     }

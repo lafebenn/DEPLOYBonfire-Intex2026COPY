@@ -285,6 +285,14 @@ export const socialMediaApi = {
 export const dashboardApi = {
   admin: () => request<unknown>("/api/dashboard/admin"),
   impact: () => request<unknown>("/api/dashboard/impact"),
+  /** Aggregates for Reports & analytics (Admin, Staff). */
+  reportsMetrics: (params?: { monthsBack?: number; safehouseId?: number | null }) => {
+    const q = new URLSearchParams();
+    if (params?.monthsBack) q.set("monthsBack", String(params.monthsBack));
+    if (params?.safehouseId != null) q.set("safehouseId", String(params.safehouseId));
+    const s = q.toString();
+    return request<unknown>(`/api/dashboard/reports-metrics${s ? `?${s}` : ""}`);
+  },
 };
 
 /** --- ML --- */
