@@ -7,6 +7,8 @@ import { Search, Plus, Heart, DollarSign } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { donorsApi, mlApi, type SupporterListRow, type SupportersListPayload } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
+import { clientTotalPages, clampClientPage } from "@/lib/clientPagination";
+import { ListPagination } from "@/components/ListPagination";
 
 type PriorityTarget = {
   supporterId: number;
@@ -112,6 +114,31 @@ export default function DonorsPage() {
   const [targetsError, setTargetsError] = useState<string | null>(null);
   const [targetsLoading, setTargetsLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [pageNum, setPageNum] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
+  const searchLower = search.toLowerCase();
+  const filtered = useMemo(() => {
+    if (!allDonors) return [];
+    return allDonors.filter((d) => d.displayName.toLowerCase().includes(searchLower));
+  }, [allDonors, searchLower]);
+
+  const totalPages = clientTotalPages(filtered.length, pageSize);
+  const currentPage = clampClientPage(pageNum, filtered.length, pageSize);
+
+  useEffect(() => {
+    setPageNum(1);
+  }, [search]);
+
+  useEffect(() => {
+    const tp = clientTotalPages(filtered.length, pageSize);
+    setPageNum((p) => Math.min(p, tp));
+  }, [filtered.length, pageSize]);
+
+  const paginatedDonors = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filtered.slice(start, start + pageSize);
+  }, [filtered, currentPage, pageSize]);
 
   async function loadTargets() {
     setTargetsLoading(true);
@@ -165,8 +192,6 @@ export default function DonorsPage() {
   if (loading) return <div className="p-8 text-muted-foreground">Loading...</div>;
   if (error) return <div className="p-8 text-destructive">{error}</div>;
   if (!allDonors) return <div className="p-8 text-muted-foreground">No data</div>;
-
-  const filtered = allDonors.filter((d) => d.displayName.toLowerCase().includes(search.toLowerCase()));
 
   return (
     <div className="space-y-6">
@@ -339,7 +364,7 @@ export default function DonorsPage() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((d, i) => (
+              {paginatedDonors.map((d, i) => (
                 <tr
                   key={d.supporterId}
                   className={`border-b border-border last:border-0 hover:bg-accent/50 transition-colors cursor-pointer ${i % 2 === 0 ? "bg-card" : "bg-muted/30"}`}
@@ -371,6 +396,19 @@ export default function DonorsPage() {
             </tbody>
           </table>
         </div>
+        {filtered.length > 0 ? (
+          <div className="px-6 pb-6">
+            <ListPagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              pageSize={pageSize}
+              totalItems={filtered.length}
+              onPageChange={setPageNum}
+              onPageSizeChange={setPageSize}
+              className="mt-0"
+            />
+          </div>
+        ) : null}
       </Card>
     </div>
   );

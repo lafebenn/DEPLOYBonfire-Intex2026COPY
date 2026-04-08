@@ -1,9 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Plus, Calendar, Users } from "lucide-react";
 import { Link } from "react-router-dom";
 import { residentsApi } from "@/lib/api";
+import { clientTotalPages, clampClientPage } from "@/lib/clientPagination";
+import { ListPagination } from "@/components/ListPagination";
 
 type ResidentRow = {
   residentId: number;
@@ -16,6 +18,8 @@ export default function CaseConferencesPage() {
   const [residents, setResidents] = useState<ResidentRow[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [pageNum, setPageNum] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   useEffect(() => {
     residentsApi
@@ -27,6 +31,19 @@ export default function CaseConferencesPage() {
       .catch((err: Error) => setError(err.message ?? "Failed to load"))
       .finally(() => setLoading(false));
   }, []);
+
+  const list = residents ?? [];
+  const totalPages = clientTotalPages(list.length, pageSize);
+  const currentPage = clampClientPage(pageNum, list.length, pageSize);
+
+  useEffect(() => {
+    setPageNum((p) => Math.min(p, totalPages));
+  }, [list.length, pageSize, totalPages]);
+
+  const paginated = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return list.slice(start, start + pageSize);
+  }, [list, currentPage, pageSize]);
 
   if (loading) return <div className="p-8 text-muted-foreground">Loading...</div>;
   if (error) return <div className="p-8 text-destructive">{error}</div>;
@@ -48,17 +65,14 @@ export default function CaseConferencesPage() {
 
       <Card className="border-dashed">
         <CardContent className="p-5 text-sm text-muted-foreground leading-relaxed">
-          The API does not expose a single global conference list.{" "}
-          <strong className="text-foreground font-medium">Conference-related context</strong> for each young person is best viewed on their{" "}
-          <Link to="/app/caseload" className="text-primary underline-offset-4 hover:underline">
-            resident detail
-          </Link>{" "}
-          page alongside visits and recordings. Below is your active caseload for quick access.
+          Scheduling a conference attaches an{" "}
+          <strong className="text-foreground font-medium">intervention plan</strong> with a case conference date to each
+          selected resident. Open a profile below to see conferences alongside process recordings and home visits.
         </CardContent>
       </Card>
 
       <div className="grid gap-4">
-        {residents.map((r) => (
+        {paginated.map((r) => (
           <Card key={r.residentId} className="hover:shadow-warm-lg transition-shadow">
             <CardContent className="p-5">
               <Link
@@ -83,6 +97,17 @@ export default function CaseConferencesPage() {
           </Card>
         ))}
       </div>
+
+      {list.length > 0 ? (
+        <ListPagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          pageSize={pageSize}
+          totalItems={list.length}
+          onPageChange={setPageNum}
+          onPageSizeChange={setPageSize}
+        />
+      ) : null}
     </div>
   );
 }

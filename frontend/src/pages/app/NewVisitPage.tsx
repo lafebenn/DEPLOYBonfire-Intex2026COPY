@@ -8,18 +8,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { residentsApi } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
+import { ResidentMultiSelect } from "@/components/ResidentMultiSelect";
 
 const statuses = ["Scheduled", "Completed"] as const;
-
-async function resolveResidentId(raw: string): Promise<number> {
-  const t = raw.trim();
-  if (/^\d+$/.test(t)) return Number(t);
-  const res = await residentsApi.list({ search: t });
-  if (!res.success) throw new Error(res.message || "Lookup failed");
-  const rows = res.data as { residentId: number }[];
-  if (rows.length !== 1) throw new Error("Enter a resident ID or a name that matches exactly one case.");
-  return rows[0].residentId;
-}
 
 export default function NewVisitPage() {
   const navigate = useNavigate();
@@ -29,7 +20,7 @@ export default function NewVisitPage() {
 
   const defaultDate = useMemo(() => new Date().toISOString().slice(0, 10), []);
 
-  const [resident, setResident] = useState("");
+  const [selectedResidents, setSelectedResidents] = useState<number[]>([]);
   const [address, setAddress] = useState("");
   const [date, setDate] = useState(defaultDate);
   const [time, setTime] = useState("10:00 AM");
@@ -40,11 +31,14 @@ export default function NewVisitPage() {
 
   useEffect(() => {
     const rid = searchParams.get("residentId");
-    if (rid) setResident(rid);
+    if (rid && /^\d+$/.test(rid)) {
+      const n = Number(rid);
+      setSelectedResidents((prev) => (prev.includes(n) ? prev : [...prev, n]));
+    }
   }, [searchParams]);
 
   const canSubmit =
-    resident.trim().length > 0 &&
+    selectedResidents.length > 0 &&
     address.trim().length > 0 &&
     date.trim().length > 0 &&
     time.trim().length > 0 &&
@@ -55,7 +49,7 @@ export default function NewVisitPage() {
       <div>
         <h2 className="font-heading text-2xl font-bold">Record Visit</h2>
         <p className="text-muted-foreground text-sm mt-1">
-          Schedule or log a home/field visit (stored locally for now).
+          Log the same home or field visit on every selected resident&apos;s file.
         </p>
       </div>
 
@@ -66,17 +60,14 @@ export default function NewVisitPage() {
           <CardTitle>Visit details</CardTitle>
         </CardHeader>
         <CardContent className="space-y-5">
+          <ResidentMultiSelect
+            id="visit-residents"
+            value={selectedResidents}
+            onChange={setSelectedResidents}
+            disabled={submitting}
+          />
+
           <div className="grid md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="resident">Resident</Label>
-              <Input
-                id="resident"
-                placeholder="Aisha T. or resident ID"
-                value={resident}
-                onChange={(e) => setResident(e.target.value)}
-                autoComplete="off"
-              />
-            </div>
             <div className="space-y-2">
               <Label htmlFor="worker">Social worker</Label>
               <Input
@@ -87,17 +78,16 @@ export default function NewVisitPage() {
                 autoComplete="off"
               />
             </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="address">Location visited</Label>
-            <Input
-              id="address"
-              placeholder="1234 Elm St, Suite 5"
-              value={address}
-              onChange={(e) => setAddress(e.target.value)}
-              autoComplete="off"
-            />
+            <div className="space-y-2">
+              <Label htmlFor="address">Location visited</Label>
+              <Input
+                id="address"
+                placeholder="1234 Elm St, Suite 5"
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                autoComplete="off"
+              />
+            </div>
           </div>
 
           <div className="grid md:grid-cols-3 gap-4">
@@ -135,28 +125,30 @@ export default function NewVisitPage() {
               onClick={() => {
                 setSubmitError(null);
                 setSubmitting(true);
-                resolveResidentId(resident)
-                  .then((residentId) =>
-                    residentsApi.addHomeVisitation(residentId, {
-                      visitDate: date,
-                      socialWorker: worker.trim(),
-                      visitType: "Home",
-                      locationVisited: address.trim(),
-                      familyMembersPresent: "",
-                      purpose: "",
-                      observations: `Scheduled time: ${time.trim()}`,
-                      familyCooperationLevel: "",
-                      safetyConcernsNoted: false,
-                      followUpNeeded: false,
-                      followUpNotes: null,
-                      visitOutcome: status,
-                    })
-                  )
-                  .then((res) => {
-                    if (!res.success) throw new Error(res.message || "Failed to save visit");
+                const body = {
+                  visitDate: date,
+                  socialWorker: worker.trim(),
+                  visitType: "Home",
+                  locationVisited: address.trim(),
+                  familyMembersPresent: "",
+                  purpose: "",
+                  observations: `Scheduled time: ${time.trim()}`,
+                  familyCooperationLevel: "",
+                  safetyConcernsNoted: false,
+                  followUpNeeded: false,
+                  followUpNotes: null as string | null,
+                  visitOutcome: status,
+                };
+                Promise.all(selectedResidents.map((residentId) => residentsApi.addHomeVisitation(residentId, body)))
+                  .then((results) => {
+                    const bad = results.find((r) => !r.success);
+                    if (bad) throw new Error(bad.message || "One or more saves failed");
                     toast({
                       title: "Visit saved",
-                      description: `Visit on ${date} added.`,
+                      description:
+                        selectedResidents.length === 1
+                          ? `Visit on ${date} added to the case file.`
+                          : `Visit on ${date} added to ${selectedResidents.length} case files.`,
                     });
                     navigate(-1);
                   })
