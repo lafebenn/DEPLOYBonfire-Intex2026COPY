@@ -144,9 +144,49 @@ public class MlService
         using var content = new StringContent(json, Encoding.UTF8, "application/json");
         var resp = await _http.PostAsync(path, content);
         resp.EnsureSuccessStatusCode();
-        var dto = await resp.Content.ReadFromJsonAsync<MlScoreResponse>(JsonOpts)
-                  ?? throw new InvalidOperationException("Empty ML response");
-        return (dto.Score, dto.Label, json, dto.ModelVersion ?? "unknown");
+        await using var stream = await resp.Content.ReadAsStreamAsync();
+        using var doc = await JsonDocument.ParseAsync(stream);
+        var root = doc.RootElement;
+        var score = ExtractNumericScore(root);
+        var label = TryGetString(root, "label", "Label");
+        var version = TryGetString(root, "modelVersion", "ModelVersion", "model_version") ?? "unknown";
+        return (score, label, json, version);
+    }
+
+    /// <summary>
+    /// Railway/Python may return <c>score</c>, <c>predicted_donation_referrals</c> (notebook output), or nested shapes.
+    /// </summary>
+    private static decimal ExtractNumericScore(JsonElement root)
+    {
+        if (root.ValueKind == JsonValueKind.Number)
+            return root.GetDecimal();
+
+        ReadOnlySpan<string> keys = new[]
+        {
+            "score", "Score",
+            "predicted_donation_referrals", "predictedDonationReferrals",
+            "prediction", "value"
+        };
+        foreach (var k in keys)
+        {
+            if (root.TryGetProperty(k, out var el) && el.ValueKind == JsonValueKind.Number)
+                return el.GetDecimal();
+        }
+
+        if (root.TryGetProperty("data", out var data))
+            return ExtractNumericScore(data);
+
+        throw new InvalidOperationException("No numeric score found in ML JSON response.");
+    }
+
+    private static string? TryGetString(JsonElement root, params string[] propertyNames)
+    {
+        foreach (var name in propertyNames)
+        {
+            if (root.TryGetProperty(name, out var el) && el.ValueKind == JsonValueKind.String)
+                return el.GetString();
+        }
+        return null;
     }
 
     private async Task<(decimal Score, string? Label, string? FeatureJson, string ModelVersion)> PostMlV1PredictAsync(
@@ -224,10 +264,4 @@ public class MlService
         };
     }
 
-    private sealed class MlScoreResponse
-    {
-        public decimal Score { get; set; }
-        public string? Label { get; set; }
-        public string? ModelVersion { get; set; }
-    }
 }
