@@ -217,15 +217,24 @@ public class DashboardController : ControllerBase
     [HttpGet("impact")]
     public async Task<ActionResult<ApiResponse<object>>> Impact()
     {
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var ytdStart = new DateOnly(today.Year, 1, 1);
+
         var latest = await _db.PublicImpactSnapshots.AsNoTracking()
             .Where(s => s.IsPublished)
             .OrderByDescending(s => s.SnapshotDate)
             .FirstOrDefaultAsync();
 
         var activeResidents = await _db.Residents.CountAsync(r => r.CaseStatus == "Active");
+        var residentsServedTotal = await _db.Residents.CountAsync();
+        var supportersTotal = await _db.Supporters.CountAsync();
+
         var totalDonationsYtd = await _db.Donations
-            .Where(d => d.DonationDate >= new DateOnly(DateTime.UtcNow.Year, 1, 1))
+            .Where(d => d.DonationDate >= ytdStart)
             .SumAsync(d => d.Amount ?? d.EstimatedValue ?? 0m);
+
+        var counselingSessionsYtd = await _db.ProcessRecordings.CountAsync(p => p.SessionDate >= ytdStart);
+        var homeVisitsYtd = await _db.HomeVisitations.CountAsync(v => v.VisitDate >= ytdStart);
 
         return Ok(ApiResponse<object>.Ok(new
         {
@@ -233,7 +242,11 @@ public class DashboardController : ControllerBase
             aggregateMetrics = new
             {
                 activeResidents,
-                totalDonationsYtd
+                residentsServedTotal,
+                supportersTotal,
+                totalDonationsYtd,
+                counselingSessionsYtd,
+                homeVisitsYtd
             }
         }));
     }

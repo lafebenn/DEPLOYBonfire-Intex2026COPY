@@ -14,7 +14,14 @@ type ImpactSnapshot = {
 };
 
 type ImpactData = {
-  aggregateMetrics: { activeResidents: number; totalDonationsYtd: number };
+  aggregateMetrics: {
+    activeResidents: number;
+    residentsServedTotal: number;
+    supportersTotal: number;
+    totalDonationsYtd: number;
+    counselingSessionsYtd: number;
+    homeVisitsYtd: number;
+  };
   latestPublishedSnapshot: ImpactSnapshot | null;
 };
 
@@ -39,19 +46,23 @@ export default function ImpactPage() {
   }, []);
 
   const metrics = useMemo(() => {
-    const active = data?.aggregateMetrics.activeResidents ?? 0;
-    const ytd = data?.aggregateMetrics.totalDonationsYtd ?? 0;
+    const agg = data?.aggregateMetrics;
+    const served = agg?.residentsServedTotal ?? 0;
+    const active = agg?.activeResidents ?? 0;
+    const ytd = agg?.totalDonationsYtd ?? 0;
+    const sessions = agg?.counselingSessionsYtd ?? 0;
+    const visits = agg?.homeVisitsYtd ?? 0;
     return [
       {
         label: "Survivors who've walked with us",
-        value: "247",
-        change: "Cumulative program total (not provided by live API).",
+        value: served.toLocaleString(),
+        change: "Total residents in our operational system.",
         icon: Users,
       },
       {
         label: "Young people in care today",
         value: String(active),
-        change: "In safe housing and counseling, not “file numbers,” but neighbors rebuilding.",
+        change: "In safe housing and counseling.",
         icon: Shield,
       },
       {
@@ -61,9 +72,9 @@ export default function ImpactPage() {
         icon: Heart,
       },
       {
-        label: "Young people finishing key milestones",
-        value: "89%",
-        change: "Illustrative program rate (not provided by live API). Core program goals: education, stability, and steps toward home.",
+        label: "Counseling sessions & home visits (YTD)",
+        value: `${sessions.toLocaleString()} / ${visits.toLocaleString()}`,
+        change: "Year-to-date counts of logged counseling sessions and home visitations.",
         icon: TrendingUp,
       },
     ];
@@ -90,17 +101,6 @@ export default function ImpactPage() {
           <p className="text-sm text-muted-foreground max-w-xl mx-auto mt-4 italic border-l-2 border-primary/40 pl-4 text-left md:text-center md:border-l-0 md:pl-0 md:border-t md:pt-4 md:border-primary/40">
             We share aggregates the way a responsible nonprofit should: honest about scale, careful with individual dignity.
           </p>
-          {data?.latestPublishedSnapshot && (
-            <div className="mt-6 max-w-2xl mx-auto text-left rounded-xl border border-border bg-card/60 p-4">
-              <p className="font-heading font-semibold text-foreground">{data.latestPublishedSnapshot.headline}</p>
-              <p className="text-sm text-muted-foreground mt-2 leading-relaxed">{data.latestPublishedSnapshot.summaryText}</p>
-            </div>
-          )}
-          <div className="mt-8 flex items-center justify-center">
-            <Button variant="hero" size="lg" asChild>
-              <Link to="/donate">Stand with children in need</Link>
-            </Button>
-          </div>
         </div>
 
         <div className="relative overflow-hidden rounded-3xl border border-border bg-card/50 p-6 md:p-8 mb-16">
@@ -132,7 +132,7 @@ export default function ImpactPage() {
           <Card className="p-8">
             <h3 className="font-heading text-xl font-semibold mb-1">Where young people are gaining ground</h3>
             <p className="text-sm text-muted-foreground mb-4 leading-relaxed">
-              Roll-ups from program teams. Percentages reflect how many of those we served this period moved forward on these goals (not cold “case” tallies).
+              Roll-ups from program teams. Percentages reflect how many of those we served this period moved forward on these goals.
             </p>
             <div className="space-y-4">
               {[
@@ -156,7 +156,7 @@ export default function ImpactPage() {
           <Card className="p-8">
             <h3 className="font-heading text-xl font-semibold mb-1">How your gifts reach people</h3>
             <p className="text-sm text-muted-foreground mb-4 leading-relaxed">
-              Honoring what donors intend: most support flows straight to services that touch a young person’s day-to-day safety and healing.
+              Most support flows straight to services that touch a young person’s day-to-day safety and healing.
             </p>
             <div className="space-y-4">
               {[
@@ -177,6 +177,16 @@ export default function ImpactPage() {
               ))}
             </div>
           </Card>
+        </div>
+
+        <div className="mt-12 flex flex-col items-center justify-center gap-4 text-center">
+          <p className="text-muted-foreground max-w-2xl text-lg leading-relaxed">
+            Every number here is a real person served. If you want to help fund safe housing, counseling, and home visits, you can give
+            today.
+          </p>
+          <Button variant="hero" size="lg" asChild>
+            <Link to="/donate">Donate</Link>
+          </Button>
         </div>
       </div>
     </div>
