@@ -147,7 +147,6 @@ export default function LandingPage() {
               <Button variant="hero" size="lg" asChild>
                 <Link to="/donate">Donate Now</Link>
               </Button>
-              <Button variant="outline" size="lg">Get In Touch</Button>
             </div>
             </div>
           </div>
