@@ -12,21 +12,11 @@ import {
   Share2,
   LogOut,
   User,
+  Menu,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useMemo } from "react";
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarFooter,
-  SidebarHeader,
-  SidebarInset,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarProvider,
-  SidebarTrigger,
-} from "@/components/ui/sidebar";
+import { useMemo, useState } from "react";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 
 const navItems = [
@@ -80,69 +70,202 @@ export default function AuthenticatedLayout() {
   }, [location.pathname, visibleNav]);
 
   return (
-    <SidebarProvider defaultOpen>
-      <div className="min-h-svh w-full bg-background">
-        <Sidebar collapsible="icon" variant="sidebar">
-          <SidebarHeader className="h-16 justify-center border-b border-sidebar-border px-3">
-            <div className="flex items-center gap-2 px-2">
-              <BonfireLogo variant="sidebar" />
+    <div className="h-dvh min-h-0 flex overflow-hidden bg-background">
+      <DesktopSidebar
+        visibleNav={visibleNav}
+        activeByUrl={activeByUrl}
+        userName={user?.name ?? ""}
+        userRole={user?.role ?? ""}
+        onLogout={logout}
+      />
+
+      <div className="flex-1 flex flex-col min-h-0 min-w-0">
+        <header className="h-16 border-b border-border bg-card/80 backdrop-blur-sm flex items-center px-4 sm:px-6 shrink-0">
+          <h1 className="font-heading text-base sm:text-lg font-semibold text-foreground truncate">{activeTitle}</h1>
+          <div className="ml-auto flex items-center gap-2">
+            <MobileSidebarButton
+              visibleNav={visibleNav}
+              activeByUrl={activeByUrl}
+              userName={user?.name ?? ""}
+              userRole={user?.role ?? ""}
+              onLogout={logout}
+            />
+          </div>
+        </header>
+
+        <main className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 md:p-8">
+          <div className="max-w-[1200px] mx-auto">
+            <Outlet />
+          </div>
+        </main>
+      </div>
+    </div>
+  );
+}
+
+function DesktopSidebar({
+  visibleNav,
+  activeByUrl,
+  userName,
+  userRole,
+  onLogout,
+}: {
+  visibleNav: typeof navItems;
+  activeByUrl: Map<string, boolean>;
+  userName: string;
+  userRole: string;
+  onLogout: () => void;
+}) {
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+
+  return (
+    <aside
+      className={cn(
+        "hidden md:flex bg-sidebar text-sidebar-foreground border-r border-sidebar-border flex-col h-full min-h-0 transition-all duration-300 shrink-0",
+        sidebarOpen ? "w-64" : "w-16",
+      )}
+    >
+      <div className="h-16 flex items-center px-4 border-b border-sidebar-border shrink-0">
+        {sidebarOpen ? (
+          <BonfireLogo variant="sidebar" />
+        ) : (
+          <div className="mx-auto">
+            <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
+              <span className="text-primary font-heading font-bold text-sm">B</span>
             </div>
-          </SidebarHeader>
+          </div>
+        )}
+      </div>
 
-          <SidebarContent className="px-2 py-4">
-            <SidebarMenu>
-              {visibleNav.map((item) => (
-                <SidebarMenuItem key={item.url}>
-                  <SidebarMenuButton asChild isActive={activeByUrl.get(item.url)} tooltip={item.title}>
-                    <Link to={item.url} className="flex items-center gap-3">
-                      <item.icon className="h-5 w-5 shrink-0" />
-                      <span>{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarContent>
+      <nav className="flex-1 min-h-0 overflow-y-auto py-4 px-2 space-y-1">
+        {visibleNav.map((item) => (
+          <Link
+            key={item.url}
+            to={item.url}
+            className={cn(
+              "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors",
+              "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+              activeByUrl.get(item.url) && "bg-sidebar-accent text-sidebar-primary font-medium",
+            )}
+          >
+            <item.icon className="h-5 w-5 shrink-0" />
+            {sidebarOpen && <span>{item.title}</span>}
+          </Link>
+        ))}
+      </nav>
 
-          <SidebarFooter className="border-t border-sidebar-border">
-            <div className="flex items-center gap-3 px-3 py-2" title={user?.name}>
+      <div className="shrink-0 p-3 border-t border-sidebar-border bg-sidebar">
+        <div
+          className={cn("flex items-center gap-3 px-3 py-2 mb-1 rounded-xl", !sidebarOpen && "justify-center px-0")}
+          title={userName}
+        >
+          <div className="h-9 w-9 rounded-full bg-sidebar-accent flex items-center justify-center shrink-0">
+            <User className="h-4 w-4 text-sidebar-primary" aria-hidden />
+          </div>
+          {sidebarOpen && (
+            <div className="min-w-0 text-left">
+              <p className="text-sm font-medium text-sidebar-foreground truncate">{userName}</p>
+              <p className="text-xs text-sidebar-foreground/50 capitalize truncate">{userRole.replace("_", " ")}</p>
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+            aria-label="Toggle sidebar"
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
+          <button
+            type="button"
+            onClick={onLogout}
+            className={cn(
+              "flex-1 flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors w-full",
+              "text-sidebar-foreground/50 hover:bg-sidebar-accent hover:text-destructive",
+              !sidebarOpen && "hidden",
+            )}
+          >
+            <LogOut className="h-5 w-5 shrink-0" />
+            <span>Sign Out</span>
+          </button>
+        </div>
+      </div>
+    </aside>
+  );
+}
+
+function MobileSidebarButton({
+  visibleNav,
+  activeByUrl,
+  userName,
+  userRole,
+  onLogout,
+}: {
+  visibleNav: typeof navItems;
+  activeByUrl: Map<string, boolean>;
+  userName: string;
+  userRole: string;
+  onLogout: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="md:hidden">
+      <Button type="button" variant="ghost" size="icon" onClick={() => setOpen(true)} aria-label="Open menu">
+        <Menu className="h-5 w-5" />
+      </Button>
+      <Sheet open={open} onOpenChange={setOpen}>
+        <SheetContent side="right" className="w-72 bg-sidebar p-0 text-sidebar-foreground">
+          <div className="h-16 flex items-center px-4 border-b border-sidebar-border shrink-0">
+            <BonfireLogo variant="sidebar" />
+          </div>
+          <nav className="py-4 px-2 space-y-1">
+            {visibleNav.map((item) => (
+              <Link
+                key={item.url}
+                to={item.url}
+                onClick={() => setOpen(false)}
+                className={cn(
+                  "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors",
+                  "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                  activeByUrl.get(item.url) && "bg-sidebar-accent text-sidebar-primary font-medium",
+                )}
+              >
+                <item.icon className="h-5 w-5 shrink-0" />
+                <span>{item.title}</span>
+              </Link>
+            ))}
+          </nav>
+
+          <div className="mt-auto shrink-0 p-3 border-t border-sidebar-border bg-sidebar">
+            <div className="flex items-center gap-3 px-3 py-2 mb-1 rounded-xl" title={userName}>
               <div className="h-9 w-9 rounded-full bg-sidebar-accent flex items-center justify-center shrink-0">
                 <User className="h-4 w-4 text-sidebar-primary" aria-hidden />
               </div>
               <div className="min-w-0 text-left">
-                <p className="text-sm font-medium text-sidebar-foreground truncate">{user?.name}</p>
-                <p className="text-xs text-sidebar-foreground/50 capitalize truncate">{user?.role.replace("_", " ")}</p>
+                <p className="text-sm font-medium text-sidebar-foreground truncate">{userName}</p>
+                <p className="text-xs text-sidebar-foreground/50 capitalize truncate">{userRole.replace("_", " ")}</p>
               </div>
             </div>
-
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  onClick={logout}
-                  tooltip="Sign Out"
-                  className={cn("text-sidebar-foreground/70 hover:text-destructive")}
-                >
-                  <LogOut className="h-5 w-5 shrink-0" />
-                  <span>Sign Out</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarFooter>
-        </Sidebar>
-
-        <SidebarInset>
-          <header className="h-16 border-b border-border bg-card/80 backdrop-blur-sm flex items-center px-4 sm:px-6 shrink-0">
-            <SidebarTrigger className="mr-3" />
-            <h1 className="font-heading text-base sm:text-lg font-semibold text-foreground truncate">{activeTitle}</h1>
-          </header>
-
-          <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 md:p-8">
-            <div className="max-w-[1200px] mx-auto">
-              <Outlet />
-            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                onLogout();
+              }}
+              className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-sidebar-foreground/50 hover:bg-sidebar-accent hover:text-destructive transition-colors w-full"
+            >
+              <LogOut className="h-5 w-5 shrink-0" />
+              <span>Sign Out</span>
+            </button>
           </div>
-        </SidebarInset>
-      </div>
-    </SidebarProvider>
+        </SheetContent>
+      </Sheet>
+    </div>
   );
 }

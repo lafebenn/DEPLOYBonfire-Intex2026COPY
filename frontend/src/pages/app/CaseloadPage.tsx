@@ -213,7 +213,7 @@ export default function CaseloadPage() {
             </CardContent>
           </Card>
         ) : null}
-        {filtered.map((r) => (
+        {paginated.map((r) => (
           <Card key={r.residentId} className="hover:shadow-warm-lg transition-shadow overflow-hidden">
             <Link
               to={`/app/caseload/${r.residentId}`}
