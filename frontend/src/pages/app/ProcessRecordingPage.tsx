@@ -1,9 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Plus, FileText } from "lucide-react";
 import { Link } from "react-router-dom";
 import { residentsApi } from "@/lib/api";
+import { clientTotalPages, clampClientPage } from "@/lib/clientPagination";
+import { ListPagination } from "@/components/ListPagination";
 
 type ResidentRow = {
   residentId: number;
@@ -16,6 +18,8 @@ export default function ProcessRecordingPage() {
   const [residents, setResidents] = useState<ResidentRow[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [pageNum, setPageNum] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   useEffect(() => {
     residentsApi
@@ -27,6 +31,19 @@ export default function ProcessRecordingPage() {
       .catch((err: Error) => setError(err.message ?? "Failed to load"))
       .finally(() => setLoading(false));
   }, []);
+
+  const list = residents ?? [];
+  const totalPages = clientTotalPages(list.length, pageSize);
+  const currentPage = clampClientPage(pageNum, list.length, pageSize);
+
+  useEffect(() => {
+    setPageNum((p) => Math.min(p, totalPages));
+  }, [list.length, pageSize, totalPages]);
+
+  const paginated = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return list.slice(start, start + pageSize);
+  }, [list, currentPage, pageSize]);
 
   if (loading) return <div className="p-8 text-muted-foreground">Loading...</div>;
   if (error) return <div className="p-8 text-destructive">{error}</div>;
@@ -58,7 +75,7 @@ export default function ProcessRecordingPage() {
       </Card>
 
       <div className="space-y-4">
-        {residents.map((r) => (
+        {paginated.map((r) => (
           <Card key={r.residentId} className="hover:shadow-warm-lg transition-shadow">
             <CardContent className="p-5">
               <Link
@@ -80,6 +97,17 @@ export default function ProcessRecordingPage() {
           </Card>
         ))}
       </div>
+
+      {list.length > 0 ? (
+        <ListPagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          pageSize={pageSize}
+          totalItems={list.length}
+          onPageChange={setPageNum}
+          onPageSizeChange={setPageSize}
+        />
+      ) : null}
     </div>
   );
 }

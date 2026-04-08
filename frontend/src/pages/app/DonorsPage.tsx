@@ -7,6 +7,8 @@ import { Search, Plus, Heart, DollarSign } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { donorsApi, mlApi, type SupporterListRow, type SupportersListPayload } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
+import { clientTotalPages, clampClientPage } from "@/lib/clientPagination";
+import { ListPagination } from "@/components/ListPagination";
 
 type PriorityTarget = {
   supporterId: number;
@@ -141,8 +143,6 @@ export default function DonorsPage() {
   if (error) return <div className="p-8 text-destructive">{error}</div>;
   if (!allDonors) return <div className="p-8 text-muted-foreground">No data</div>;
 
-  const filtered = allDonors.filter((d) => d.displayName.toLowerCase().includes(search.toLowerCase()));
-
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -254,6 +254,19 @@ export default function DonorsPage() {
             </tbody>
           </table>
         </div>
+        {filtered.length > 0 ? (
+          <div className="px-6 pb-6">
+            <ListPagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              pageSize={pageSize}
+              totalItems={filtered.length}
+              onPageChange={setPageNum}
+              onPageSizeChange={setPageSize}
+              className="mt-0"
+            />
+          </div>
+        ) : null}
       </Card>
 
       <Card>

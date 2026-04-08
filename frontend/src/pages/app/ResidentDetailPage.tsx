@@ -94,6 +94,16 @@ type HomeVisit = {
   socialWorker: string;
 };
 
+type InterventionPlanRow = {
+  planId: number;
+  planCategory: string;
+  planDescription: string;
+  servicesProvided: string;
+  targetDate: string;
+  status: string;
+  caseConferenceDate?: string | null;
+};
+
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-4 py-2 border-b border-border/80 last:border-0">
@@ -128,6 +138,7 @@ export default function ResidentDetailPage() {
   const [writeSnapshot, setWriteSnapshot] = useState<ResidentCaseWrite | null>(null);
   const [recordings, setRecordings] = useState<ProcessRec[]>([]);
   const [visits, setVisits] = useState<HomeVisit[]>([]);
+  const [interventionPlans, setInterventionPlans] = useState<InterventionPlanRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notFound, setNotFound] = useState(false);
@@ -143,8 +154,9 @@ export default function ResidentDetailPage() {
       residentsApi.get(idNum),
       residentsApi.processRecordings(idNum),
       residentsApi.homeVisitations(idNum),
+      residentsApi.interventionPlans(idNum),
     ])
-      .then(([res, recRes, visRes]) => {
+      .then(([res, recRes, visRes, planRes]) => {
         if (!res.success) {
           if (res.message?.toLowerCase().includes("not found")) setNotFound(true);
           else throw new Error(res.message || "Failed to load resident");
@@ -156,6 +168,8 @@ export default function ResidentDetailPage() {
         setWriteSnapshot(residentGetToWritePayload(data));
         if (recRes.success) setRecordings(recRes.data as ProcessRec[]);
         if (visRes.success) setVisits(visRes.data as HomeVisit[]);
+        if (planRes.success) setInterventionPlans(planRes.data as InterventionPlanRow[]);
+        else setInterventionPlans([]);
       })
       .catch((err: Error) => setError(err.message ?? "Failed to load"))
       .finally(() => setLoading(false));
@@ -456,6 +470,41 @@ export default function ResidentDetailPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Card className="card-warm">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 font-heading">
+            <Calendar className="h-5 w-5 text-primary" />
+            Case conferences & intervention plans
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {interventionPlans.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No intervention plans or scheduled conferences on file.</p>
+          ) : (
+            interventionPlans.map((p) => (
+              <div key={p.planId} className="text-sm border-b border-border/60 last:border-0 pb-4 last:pb-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="font-medium">{p.planCategory}</p>
+                  {p.caseConferenceDate ? (
+                    <Badge variant="secondary" className="text-xs">
+                      Conference {p.caseConferenceDate}
+                    </Badge>
+                  ) : null}
+                  <Badge variant="outline" className="text-xs">
+                    {p.status}
+                  </Badge>
+                </div>
+                <p className="text-muted-foreground text-xs mt-1">Target review: {p.targetDate}</p>
+                <p className="text-foreground mt-2 whitespace-pre-wrap leading-relaxed">{p.planDescription}</p>
+                {p.servicesProvided?.trim() ? (
+                  <p className="text-muted-foreground text-xs mt-2">Services: {p.servicesProvided}</p>
+                ) : null}
+              </div>
+            ))
+          )}
+        </CardContent>
+      </Card>
 
       <Card className="card-warm border-dashed">
         <CardHeader>
