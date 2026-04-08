@@ -328,6 +328,7 @@ export const donorsApi = {
     request<{ id: number }>("/api/donations", { method: "POST", body: JSON.stringify(body) }),
   donationUpdate: (id: number, body: unknown) =>
     request<null>(`/api/donations/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+  donationDelete: (id: number) => request<null>(`/api/donations/${id}`, { method: "DELETE" }),
 };
 
 /** --- Donor portal --- */

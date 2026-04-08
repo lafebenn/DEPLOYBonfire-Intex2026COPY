@@ -29,7 +29,7 @@ public class DonationsController : ControllerBase
     }
 
     [HttpGet]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,Staff")]
     public async Task<ActionResult<ApiResponse<object>>> List(
         [FromQuery] int? supporterId,
         [FromQuery] string? type,
@@ -81,10 +81,12 @@ public class DonationsController : ControllerBase
     }
 
     [HttpGet("{id:int}")]
-    [Authorize(Roles = "Admin,Donor")]
+    [Authorize(Roles = "Admin,Staff,Donor")]
     public async Task<ActionResult<ApiResponse<object>>> Get(int id)
     {
-        var d = await _db.Donations.AsNoTracking().FirstOrDefaultAsync(x => x.DonationId == id);
+        var d = await _db.Donations.AsNoTracking()
+            .Include(x => x.Allocations)
+            .FirstOrDefaultAsync(x => x.DonationId == id);
         if (d == null) return NotFound(ApiResponse<object>.Fail("Not found"));
 
         if (User.IsInRole("Donor"))
@@ -94,7 +96,36 @@ public class DonationsController : ControllerBase
                 return StatusCode(403, ApiResponse<object>.Fail("Forbidden"));
         }
 
-        return Ok(ApiResponse<object>.Ok(d));
+        var payload = new
+        {
+            d.DonationId,
+            d.SupporterId,
+            d.DonationType,
+            donationDate = d.DonationDate,
+            d.ChannelSource,
+            d.CurrencyCode,
+            d.Amount,
+            d.EstimatedValue,
+            d.ImpactUnit,
+            d.IsRecurring,
+            d.CampaignName,
+            d.Notes,
+            d.CreatedByPartnerId,
+            d.ReferralPostId,
+            allocations = d.Allocations
+                .OrderBy(a => a.AllocationId)
+                .Select(a => new
+                {
+                    a.AllocationId,
+                    a.SafehouseId,
+                    a.ProgramArea,
+                    a.AmountAllocated,
+                    allocationDate = a.AllocationDate,
+                    a.AllocationNotes
+                })
+                .ToList()
+        };
+        return Ok(ApiResponse<object>.Ok(payload));
     }
 
     public class DonationWriteDto
@@ -125,7 +156,7 @@ public class DonationsController : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,Staff")]
     public async Task<ActionResult<ApiResponse<object>>> Create([FromBody] DonationWriteDto dto)
     {
         if (!await _db.Supporters.AnyAsync(s => s.SupporterId == dto.SupporterId))
@@ -231,7 +262,7 @@ public class DonationsController : ControllerBase
     }
 
     [HttpPut("{id:int}")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,Staff")]
     public async Task<ActionResult<ApiResponse<object>>> Update(int id, [FromBody] DonationWriteDto dto)
     {
         var e = await _db.Donations.FindAsync(id);
@@ -286,5 +317,16 @@ public class DonationsController : ControllerBase
 
         await _db.SaveChangesAsync();
         return Ok(ApiResponse<object>.Ok(null, "Updated"));
+    }
+
+    [HttpDelete("{id:int}")]
+    [Authorize(Roles = "Admin,Staff")]
+    public async Task<ActionResult<ApiResponse<object>>> Delete(int id)
+    {
+        var e = await _db.Donations.FindAsync(id);
+        if (e == null) return NotFound(ApiResponse<object>.Fail("Not found"));
+        _db.Donations.Remove(e);
+        await _db.SaveChangesAsync();
+        return Ok(ApiResponse<object>.Ok(null, "Deleted"));
     }
 }
