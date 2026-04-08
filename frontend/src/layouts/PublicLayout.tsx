@@ -1,4 +1,5 @@
 import { Outlet, Link } from "react-router-dom";
+import { NavLink } from "@/components/NavLink";
 import { BonfireLogo } from "@/components/BonfireLogo";
 import { Button } from "@/components/ui/button";
 import { CookieConsentBanner } from "@/components/CookieConsentBanner";
@@ -12,11 +13,36 @@ export default function PublicLayout() {
       <header className="border-b border-border bg-card/80 backdrop-blur-sm sticky top-0 z-40">
         <div className="section-container flex items-center justify-between h-16 gap-4">
           <BonfireLogo />
-          <nav className="hidden md:flex items-center gap-6">
-            <Link to="/" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Home</Link>
-            <Link to="/impact" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Impact</Link>
-            <Link to="/donate" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Donate</Link>
-            <Link to="/privacy" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Privacy</Link>
+          <nav className="hidden md:flex items-center gap-1" aria-label="Primary">
+            <NavLink
+              to="/"
+              end
+              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors rounded-md px-3 py-1.5"
+              activeClassName="text-foreground bg-muted"
+            >
+              Home
+            </NavLink>
+            <NavLink
+              to="/impact"
+              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors rounded-md px-3 py-1.5"
+              activeClassName="text-foreground bg-muted"
+            >
+              Impact
+            </NavLink>
+            <NavLink
+              to="/donate"
+              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors rounded-md px-3 py-1.5"
+              activeClassName="text-foreground bg-muted"
+            >
+              Donate
+            </NavLink>
+            <NavLink
+              to="/privacy"
+              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors rounded-md px-3 py-1.5"
+              activeClassName="text-foreground bg-muted"
+            >
+              Privacy
+            </NavLink>
           </nav>
           <div className="flex items-center gap-2 shrink-0">
             {isAuthenticated ? (
