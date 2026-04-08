@@ -250,12 +250,21 @@ export default function DonorsPage() {
       </div>
 
       <Card>
-        <CardHeader className="pb-2">
+        <CardHeader className="pb-2 space-y-3">
           <CardTitle className="text-base font-heading">High priority outreach (donor lapse risk)</CardTitle>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm text-muted-foreground font-normal">
-              Ranked by predicted lapse risk and lifetime value. Refreshed nightly at midnight (server time).
+          <div className="space-y-2 text-sm text-muted-foreground max-w-3xl leading-relaxed">
+            <p>
+              Ranks supporters by <span className="text-foreground font-medium">estimated lapse risk</span>—whether they may stop giving
+              soon, from gift history and related signals. Higher scores mean higher risk; use this to prioritize outreach, not as a guarantee.
             </p>
+            <p>
+              <span className="text-foreground font-medium">High</span>, <span className="text-foreground font-medium">Medium</span>, and{" "}
+              <span className="text-foreground font-medium">Low</span> are relative tiers on that score. Order is risk first, then lifetime
+              giving.
+            </p>
+          </div>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-muted-foreground font-normal">Scores refresh nightly at midnight (server time).</p>
             <Button
               size="sm"
               variant="outline"
