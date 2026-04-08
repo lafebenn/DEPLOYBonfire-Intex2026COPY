@@ -29,6 +29,7 @@ import { fetchResidentRiskPrediction, pickMlProxyScore, residentsApi } from "@/l
 import { ResidentCaseEditDialog } from "@/components/ResidentCaseEditDialog";
 import { residentGetToWritePayload, type ResidentCaseWrite } from "@/lib/residentCaseWrite";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 
 const riskVariant: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
   Low: "secondary",
@@ -134,7 +135,7 @@ export default function ResidentDetailPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
-  const isAdmin = user?.role === "admin";
+  const isAdmin = (user?.role ?? "").toLowerCase() === "admin";
 
   const [resident, setResident] = useState<ResidentApi | null>(null);
   const [writeSnapshot, setWriteSnapshot] = useState<ResidentCaseWrite | null>(null);
