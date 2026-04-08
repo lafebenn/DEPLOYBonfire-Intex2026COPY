@@ -2,7 +2,7 @@ export type IntakeCase = {
   id: string;
   name: string;
   program: string;
-  status: "Active" | "Transitioning" | "Completed";
+  status: "Active" | "Transitioning" | "Completed" | "Closed";
   admitted: string; // YYYY-MM-DD
   progress: number; // 0-100
   createdAt: string; // ISO
