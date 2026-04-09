@@ -23,6 +23,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Users, Heart, Calendar, FileText, Clock, Flame, UserPlus, BadgeCheck } from "lucide-react";
 import { Link } from "react-router-dom";
 import { authApi, dashboardApi } from "@/lib/api";
+import { caseRiskFlameTier, riskTierBadgeClass } from "@/lib/residentRiskUi";
 import { useToast } from "@/hooks/use-toast";
 
 type SafehouseOcc = {
@@ -167,20 +168,6 @@ function attentionRowClass(flameLevel: number): string {
     return "bg-amber-500/[0.08] dark:bg-amber-950/25 border-l-[3px] border-l-amber-500/45 hover:bg-amber-500/[0.13] dark:hover:bg-amber-950/40";
   }
   return "bg-muted/35 border-l-[3px] border-l-muted-foreground/30 hover:bg-muted/55";
-}
-
-/** Matches flame tier: same reds / oranges / ambers as the icon beside it. */
-function attentionRiskBadgeClass(flameLevel: number): string {
-  if (flameLevel >= 3) {
-    return "border-red-500/55 bg-red-500/10 text-red-600 shadow-[0_0_10px_-4px_rgba(239,68,68,0.45)] dark:text-red-400 dark:bg-red-500/15 dark:border-red-500/45";
-  }
-  if (flameLevel >= 2) {
-    return "border-orange-500/50 bg-orange-500/10 text-orange-700 dark:text-orange-400 dark:bg-orange-500/15 dark:border-orange-500/45";
-  }
-  if (flameLevel >= 1) {
-    return "border-amber-500/45 bg-amber-500/10 text-amber-800 dark:text-amber-400 dark:bg-amber-500/15 dark:border-amber-500/40";
-  }
-  return "border-muted-foreground/25 bg-muted/40 text-muted-foreground";
 }
 
 function topFactorSummary(factors: Record<string, number> | null | undefined): string {
@@ -381,7 +368,10 @@ export default function AdminDashboard() {
                           <span className="text-xs text-muted-foreground">({r.caseControlNo})</span>
                         ) : null}
                         {r.currentRiskLevel ? (
-                          <Badge variant="outline" className={`text-[10px] capitalize ${attentionRiskBadgeClass(r.flameLevel)}`}>
+                          <Badge
+                            variant="outline"
+                            className={`text-[10px] capitalize ${riskTierBadgeClass(caseRiskFlameTier(r.currentRiskLevel))}`}
+                          >
                             {r.currentRiskLevel}
                           </Badge>
                         ) : null}

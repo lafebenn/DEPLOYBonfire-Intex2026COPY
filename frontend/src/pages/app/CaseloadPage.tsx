@@ -11,6 +11,7 @@ import { residentsApi } from "@/lib/api";
 import { clientTotalPages, clampClientPage } from "@/lib/clientPagination";
 import { ListPagination } from "@/components/ListPagination";
 import { cn } from "@/lib/utils";
+import { riskLevelBadgeClassFromLevel } from "@/lib/residentRiskUi";
 
 type ResidentRow = {
   residentId: number;
@@ -230,14 +231,19 @@ export default function CaseloadPage() {
                       <p className="text-sm text-muted-foreground">{r.caseControlNo} · {r.caseCategory}</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-4">
-                    <div className="text-right hidden sm:block">
-                      <p className="text-sm font-medium">{r.currentRiskLevel}</p>
-                      <div className="w-20 h-1.5 bg-muted rounded-full mt-1">
-                        <div className="h-full bg-primary rounded-full" style={{ width: "100%" }} />
-                      </div>
+                  <div className="flex flex-wrap items-center justify-end gap-y-2 gap-x-0">
+                    <div className="flex items-center gap-2 text-right pr-3 sm:pr-4">
+                      <span className="text-xs text-muted-foreground whitespace-nowrap">Current risk:</span>
+                      <Badge
+                        variant="outline"
+                        className={cn("text-[10px] capitalize shrink-0", riskLevelBadgeClassFromLevel(r.currentRiskLevel))}
+                      >
+                        {r.currentRiskLevel?.trim() ? r.currentRiskLevel : "Not set"}
+                      </Badge>
                     </div>
-                    <Badge variant={statusColors[r.caseStatus] || "outline"}>{r.caseStatus}</Badge>
+                    <div className="flex items-center border-l border-border pl-3 sm:pl-4 min-h-[1.5rem]">
+                      <Badge variant={statusColors[r.caseStatus] || "outline"}>{r.caseStatus}</Badge>
+                    </div>
                   </div>
                 </div>
               </CardContent>
