@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes, Link } from "react-router-dom";
+import { BrowserRouter, Route, Routes, Link, Navigate } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -23,9 +23,6 @@ import CookiesPage from "@/pages/CookiesPage";
 import AdminDashboard from "@/pages/app/AdminDashboard";
 import CaseloadPage from "@/pages/app/CaseloadPage";
 import ResidentDetailPage from "@/pages/app/ResidentDetailPage";
-import ProcessRecordingPage from "@/pages/app/ProcessRecordingPage";
-import HomeVisitsPage from "@/pages/app/HomeVisitsPage";
-import CaseConferencesPage from "@/pages/app/CaseConferencesPage";
 import DonorsPage from "@/pages/app/DonorsPage";
 import SupporterProfilePage from "@/pages/app/SupporterProfilePage";
 import ReportsPage from "@/pages/app/ReportsPage";
@@ -76,14 +73,8 @@ const App = () => (
                   </ProtectedRoute>
                 }
               />
-              <Route
-                path="/donate"
-                element={
-                  <ProtectedRoute roles={["donor", "admin"]}>
-                    <DonatePage />
-                  </ProtectedRoute>
-                }
-              />
+              {/* Anyone may open /donate; DonatePage gates the form on sign-in internally */}
+              <Route path="/donate" element={<DonatePage />} />
               <Route path="/privacy" element={<PrivacyPage />} />
               <Route path="/cookies" element={<CookiesPage />} />
             </Route>
@@ -104,9 +95,9 @@ const App = () => (
               <Route index element={<AdminDashboard />} />
               <Route path="caseload" element={<CaseloadPage />} />
               <Route path="caseload/:residentId" element={<ResidentDetailPage />} />
-              <Route path="process-recording" element={<ProcessRecordingPage />} />
-              <Route path="home-visits" element={<HomeVisitsPage />} />
-              <Route path="case-conferences" element={<CaseConferencesPage />} />
+              <Route path="process-recording" element={<Navigate to="/app/recordings/new" replace />} />
+              <Route path="home-visits" element={<Navigate to="/app/visits/new" replace />} />
+              <Route path="case-conferences" element={<Navigate to="/app/conferences/new" replace />} />
               <Route
                 path="donors"
                 element={

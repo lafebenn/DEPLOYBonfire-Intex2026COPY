@@ -22,9 +22,9 @@ import { cn } from "@/lib/utils";
 const navItems = [
   { title: "Dashboard", url: "/app", icon: LayoutDashboard, roles: ["admin", "staff", "fundraising_director"] },
   { title: "Caseload", url: "/app/caseload", icon: Users, roles: ["admin", "staff"] },
-  { title: "Process Recording", url: "/app/process-recording", icon: FileText, roles: ["admin", "staff"] },
-  { title: "Home Visits", url: "/app/home-visits", icon: Home, roles: ["admin", "staff"] },
-  { title: "Case Conferences", url: "/app/case-conferences", icon: Calendar, roles: ["admin", "staff"] },
+  { title: "Process Recording", url: "/app/recordings/new", icon: FileText, roles: ["admin", "staff"] },
+  { title: "Home Visits", url: "/app/visits/new", icon: Home, roles: ["admin", "staff"] },
+  { title: "Case Conferences", url: "/app/conferences/new", icon: Calendar, roles: ["admin", "staff"] },
   { title: "Donors", url: "/app/donors", icon: Heart, roles: ["admin", "fundraising_director"] },
   { title: "Reports", url: "/app/reports", icon: BarChart3, roles: ["admin", "staff", "fundraising_director"] },
   { title: "Social insights", url: "/app/social", icon: Share2, roles: ["admin", "staff", "fundraising_director"] },

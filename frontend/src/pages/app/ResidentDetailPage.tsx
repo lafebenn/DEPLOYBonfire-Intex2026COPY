@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -29,6 +29,7 @@ import { fetchResidentRiskPrediction, parseResidentRiskMlResponse, pickMlProxySc
 import { ResidentCaseEditDialog } from "@/components/ResidentCaseEditDialog";
 import { residentGetToWritePayload, type ResidentCaseWrite } from "@/lib/residentCaseWrite";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 
 const riskVariant: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
   Low: "secondary",
@@ -113,6 +114,8 @@ function DetailRow({ label, value }: { label: string; value: string }) {
   );
 }
 
+const HISTORY_PREVIEW = 10;
+
 function subcategoriesFrom(r: ResidentApi) {
   return [
     { label: "Orphaned", value: r.subCatOrphaned },
@@ -134,7 +137,7 @@ export default function ResidentDetailPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
-  const isAdmin = user?.role === "admin";
+  const isAdmin = (user?.role ?? "").toLowerCase() === "admin";
 
   const [resident, setResident] = useState<ResidentApi | null>(null);
   const [writeSnapshot, setWriteSnapshot] = useState<ResidentCaseWrite | null>(null);
@@ -150,6 +153,25 @@ export default function ResidentDetailPage() {
   const [mlPred, setMlPred] = useState<unknown>(null);
   const [mlPredLoading, setMlPredLoading] = useState(false);
   const [mlPredError, setMlPredError] = useState<string | null>(null);
+  const [recordingsExpanded, setRecordingsExpanded] = useState(false);
+  const [visitsExpanded, setVisitsExpanded] = useState(false);
+
+  const sortedRecordings = useMemo(() => {
+    return [...recordings].sort((a, b) => {
+      const d = b.sessionDate.localeCompare(a.sessionDate);
+      return d !== 0 ? d : b.recordingId - a.recordingId;
+    });
+  }, [recordings]);
+
+  const sortedVisits = useMemo(() => {
+    return [...visits].sort((a, b) => {
+      const d = b.visitDate.localeCompare(a.visitDate);
+      return d !== 0 ? d : b.visitationId - a.visitationId;
+    });
+  }, [visits]);
+
+  const visibleRecordings = recordingsExpanded ? sortedRecordings : sortedRecordings.slice(0, HISTORY_PREVIEW);
+  const visibleVisits = visitsExpanded ? sortedVisits : sortedVisits.slice(0, HISTORY_PREVIEW);
 
   const loadResident = useCallback(() => {
     if (!residentId || Number.isNaN(idNum)) return;
@@ -188,6 +210,11 @@ export default function ResidentDetailPage() {
     }
     loadResident();
   }, [residentId, idNum, loadResident]);
+
+  useEffect(() => {
+    setRecordingsExpanded(false);
+    setVisitsExpanded(false);
+  }, [idNum]);
 
   useEffect(() => {
     if (!resident) {
@@ -336,7 +363,7 @@ export default function ResidentDetailPage() {
               </Link>
             </Button>
             <Button variant="outline" size="sm" asChild>
-              <Link to="/app/case-conferences">
+              <Link to={`/app/conferences/new?residentId=${resident.residentId}`}>
                 <Calendar className="h-4 w-4 mr-2" />
                 Conferences
               </Link>
@@ -574,13 +601,34 @@ export default function ResidentDetailPage() {
             {recordings.length === 0 ? (
               <p className="text-sm text-muted-foreground">No process recordings on file.</p>
             ) : (
-              recordings.map((rec) => (
-                <div key={rec.recordingId} className="text-sm border-b border-border/60 last:border-0 pb-3 last:pb-0">
-                  <p className="font-medium">{rec.sessionType}</p>
-                  <p className="text-muted-foreground text-xs mt-1">{rec.sessionDate} · {rec.socialWorker}</p>
-                  <p className="text-foreground mt-2 leading-relaxed">{rec.sessionNarrative}</p>
-                </div>
-              ))
+              <>
+                {sortedRecordings.length > HISTORY_PREVIEW ? (
+                  <p className="text-xs text-muted-foreground">
+                    Showing {visibleRecordings.length} of {sortedRecordings.length} (newest first).
+                  </p>
+                ) : null}
+                {visibleRecordings.map((rec) => (
+                  <div key={rec.recordingId} className="text-sm border-b border-border/60 last:border-0 pb-3 last:pb-0">
+                    <p className="font-medium">{rec.sessionType}</p>
+                    <p className="text-muted-foreground text-xs mt-1">{rec.sessionDate} · {rec.socialWorker}</p>
+                    <p className="text-foreground mt-2 leading-relaxed">{rec.sessionNarrative}</p>
+                  </div>
+                ))}
+                {sortedRecordings.length > HISTORY_PREVIEW ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    aria-expanded={recordingsExpanded}
+                    onClick={() => setRecordingsExpanded((e) => !e)}
+                  >
+                    {recordingsExpanded
+                      ? "Show fewer"
+                      : `See ${sortedRecordings.length - HISTORY_PREVIEW} more`}
+                  </Button>
+                ) : null}
+              </>
             )}
           </CardContent>
         </Card>
@@ -596,13 +644,32 @@ export default function ResidentDetailPage() {
             {visits.length === 0 ? (
               <p className="text-sm text-muted-foreground">No home visitations on file.</p>
             ) : (
-              visits.map((v) => (
-                <div key={v.visitationId} className="text-sm border-b border-border/60 last:border-0 pb-3 last:pb-0">
-                  <p className="font-medium">{v.locationVisited}</p>
-                  <p className="text-muted-foreground text-xs mt-1">{v.visitDate} · {v.socialWorker}</p>
-                  <p className="text-foreground mt-2">{v.visitOutcome}</p>
-                </div>
-              ))
+              <>
+                {sortedVisits.length > HISTORY_PREVIEW ? (
+                  <p className="text-xs text-muted-foreground">
+                    Showing {visibleVisits.length} of {sortedVisits.length} (newest first).
+                  </p>
+                ) : null}
+                {visibleVisits.map((v) => (
+                  <div key={v.visitationId} className="text-sm border-b border-border/60 last:border-0 pb-3 last:pb-0">
+                    <p className="font-medium">{v.locationVisited}</p>
+                    <p className="text-muted-foreground text-xs mt-1">{v.visitDate} · {v.socialWorker}</p>
+                    <p className="text-foreground mt-2">{v.visitOutcome}</p>
+                  </div>
+                ))}
+                {sortedVisits.length > HISTORY_PREVIEW ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    aria-expanded={visitsExpanded}
+                    onClick={() => setVisitsExpanded((e) => !e)}
+                  >
+                    {visitsExpanded ? "Show fewer" : `See ${sortedVisits.length - HISTORY_PREVIEW} more`}
+                  </Button>
+                ) : null}
+              </>
             )}
           </CardContent>
         </Card>

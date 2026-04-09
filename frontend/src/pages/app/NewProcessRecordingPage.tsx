@@ -111,7 +111,7 @@ export default function NewProcessRecordingPage() {
           </div>
 
           <div className="flex items-center justify-end gap-3">
-            <Button variant="outline" onClick={() => navigate("/app/process-recording")}>
+            <Button variant="outline" onClick={() => navigate("/app/caseload")}>
               Cancel
             </Button>
             <Button
