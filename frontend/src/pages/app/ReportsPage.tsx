@@ -17,8 +17,7 @@ import {
   Users,
 } from "lucide-react";
 import { Link } from "react-router-dom";
-import { localData } from "@/lib/localData";
-import { dashboardApi, safehousesApi } from "@/lib/api";
+import { dashboardApi, safehousesApi, staffReportRunsApi, type StaffReportRunRow } from "@/lib/api";
 import type { ReportAnalytics, SafehouseMonthlyRow } from "@/lib/reportAnalytics";
 import { useIsMobile } from "@/hooks/use-mobile";
 import {
@@ -134,7 +133,9 @@ export default function ReportsPage() {
     donationByChannel?: ReportAnalytics["donationByChannel"];
     donationByCampaign?: ReportAnalytics["donationByCampaign"];
   } | null>(null);
-  const reportRuns = localData.listReportRuns();
+  const [staffReportRuns, setStaffReportRuns] = useState<StaffReportRunRow[]>([]);
+  const [staffRunsLoading, setStaffRunsLoading] = useState(true);
+  const [staffRunsError, setStaffRunsError] = useState<string | null>(null);
   const [preview, setPreview] = useState<{ open: boolean; title: string }>({ open: false, title: "" });
   const [templatePreview, setTemplatePreview] = useState<{
     open: boolean;
@@ -144,7 +145,30 @@ export default function ReportsPage() {
 
   useEffect(() => {
     let cancelled = false;
-
+    setStaffRunsLoading(true);
+    setStaffRunsError(null);
+    staffReportRunsApi
+      .list(20)
+      .then((res) => {
+        if (cancelled) return;
+        if (!res.success) {
+          setStaffRunsError(res.message || "Could not load report runs");
+          setStaffReportRuns([]);
+          return;
+        }
+        const raw = res.data;
+        const rows = Array.isArray(raw) ? raw : [];
+        setStaffReportRuns(rows as StaffReportRunRow[]);
+      })
+      .catch((e: unknown) => {
+        if (!cancelled) {
+          setStaffRunsError(e instanceof Error ? e.message : "Could not load report runs");
+          setStaffReportRuns([]);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setStaffRunsLoading(false);
+      });
     return () => {
       cancelled = true;
     };
@@ -996,40 +1020,56 @@ export default function ReportsPage() {
         </div>
       </div>
 
-      {reportRuns.length > 0 && (
-        <Card className="card-warm border-secondary/25">
-          <CardHeader>
-            <CardTitle className="font-heading">Recent generated report runs</CardTitle>
-            <CardDescription className="font-body">Stored locally until backend persistence is wired.</CardDescription>
-          </CardHeader>
-          <CardContent>
+      <Card className="card-warm border-secondary/25">
+        <CardHeader>
+          <CardTitle className="font-heading">Recent report runs</CardTitle>
+          <CardDescription className="font-body">
+            Saved to the database from Generate report run. Export annex CSVs from the templates above.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {staffRunsLoading ? (
+            <p className="text-sm text-muted-foreground">Loading report runs…</p>
+          ) : staffRunsError ? (
+            <p className="text-sm text-destructive">{staffRunsError}</p>
+          ) : staffReportRuns.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No report runs yet. Use Generate new report run to add one.</p>
+          ) : (
             <div className="space-y-3">
-              {reportRuns.slice(0, 5).map((run) => (
+              {staffReportRuns.slice(0, 8).map((run) => (
                 <div
-                  key={run.id}
-                  className="flex items-start justify-between gap-4 p-4 rounded-xl border border-border bg-card"
+                  key={run.staffReportRunId}
+                  className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 p-4 rounded-xl border border-border bg-card"
                 >
-                  <div className="min-w-0">
-                    <p className="font-medium font-heading text-sm">{run.templateTitle}</p>
-                    <p className="text-xs text-muted-foreground mt-1 font-body">
-                      Generated {new Date(run.generatedAt).toLocaleString()}
+                  <div className="min-w-0 space-y-1">
+                    <p className="font-medium font-heading text-sm">{run.title || run.templateTitle}</p>
+                    <p className="text-xs text-muted-foreground font-body">
+                      {run.templateTitle}
+                      {run.status ? ` · ${run.status}` : ""}
                     </p>
-                    {run.notes && (
+                    <p className="text-xs text-muted-foreground font-body">
+                      {run.reportingPeriodStart} → {run.reportingPeriodEnd}
+                      {run.safehouseName ? ` · ${run.safehouseName}` : ""}
+                    </p>
+                    <p className="text-xs text-muted-foreground font-body">
+                      Saved {new Date(run.createdAt).toLocaleString()}
+                    </p>
+                    {run.notes ? (
                       <p className="text-sm text-muted-foreground mt-2 leading-relaxed font-body border-l-2 border-primary/30 pl-3">
                         {run.notes}
                       </p>
-                    )}
+                    ) : null}
                   </div>
-                  <Button variant="outline" size="sm" onClick={() => downloadAccomplishmentAnnexCsv(analytics)}>
+                  <Button variant="outline" size="sm" className="shrink-0" onClick={() => downloadAccomplishmentAnnexCsv(analytics)}>
                     <Download className="h-4 w-4 mr-1" />
                     Annex CSV
                   </Button>
                 </div>
               ))}
             </div>
-          </CardContent>
-        </Card>
-      )}
+          )}
+        </CardContent>
+      </Card>
 
       <AccomplishmentReportDialog
         open={preview.open}

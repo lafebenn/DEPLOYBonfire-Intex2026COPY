@@ -30,6 +30,22 @@ type MlScenario = {
   score: number;
 };
 
+function normalizeMlScenario(raw: unknown): MlScenario | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const o = raw as Record<string, unknown>;
+  const platform = String(o.platform ?? o.Platform ?? "").trim();
+  const postType = String(o.postType ?? o.PostType ?? "").trim();
+  const representativePostId = Number(o.representativePostId ?? o.RepresentativePostId ?? NaN);
+  const score = Number(o.score ?? o.Score ?? NaN);
+  if (!platform || !postType || !Number.isFinite(representativePostId)) return null;
+  return {
+    platform,
+    postType,
+    representativePostId,
+    score: Number.isFinite(score) ? score : NaN,
+  };
+}
+
 /** Present ML numeric output in plain language (model may return a probability or a count-like score). */
 function formatSocialMlEstimate(score: number): { headline: string; detail: string } {
   if (!Number.isFinite(score)) {
@@ -185,7 +201,13 @@ export default function SocialMediaInsightsPage() {
   const bestHours = (data?.bestHours ?? []) as any[];
   const insights = (data?.insights ?? []) as string[];
   const topPosts = useMemo(() => (data?.topPosts ?? []) as any[], [data?.topPosts]);
-  const mlScenarios = useMemo(() => (data?.mlScenarios ?? []) as MlScenario[], [data?.mlScenarios]);
+  const mlScenarios = useMemo(() => {
+    const raw = (data?.mlScenarios ?? (data as Record<string, unknown> | null)?.MlScenarios) as unknown;
+    const arr = Array.isArray(raw) ? raw : [];
+    return arr.map(normalizeMlScenario).filter((x): x is MlScenario => x !== null);
+  }, [data]);
+
+  const mlInferenceAvailable = Boolean(data?.mlInferenceAvailable);
 
   const mlPlatforms = useMemo(() => {
     const set = new Set(mlScenarios.map((s) => s.platform).filter(Boolean));
@@ -194,21 +216,32 @@ export default function SocialMediaInsightsPage() {
 
   const mlPostTypesForPlatform = useMemo(() => {
     if (!selectedPlatform) return [];
-    const set = new Set(
-      mlScenarios.filter((s) => s.platform === selectedPlatform).map((s) => s.postType).filter(Boolean),
-    );
+    const p = selectedPlatform.trim();
+    const set = new Set(mlScenarios.filter((s) => s.platform === p).map((s) => s.postType).filter(Boolean));
     return [...set].sort((a, b) => a.localeCompare(b));
   }, [mlScenarios, selectedPlatform]);
 
-  const activeMlScenario = useMemo(
-    () =>
-      mlScenarios.find((s) => s.platform === selectedPlatform && s.postType === selectedPostType) ?? null,
-    [mlScenarios, selectedPlatform, selectedPostType],
-  );
+  const activeMlScenario = useMemo(() => {
+    const p = selectedPlatform.trim();
+    const t = selectedPostType.trim();
+    return mlScenarios.find((s) => s.platform === p && s.postType === t) ?? null;
+  }, [mlScenarios, selectedPlatform, selectedPostType]);
+
+  const showMlNumeric =
+    mlInferenceAvailable && activeMlScenario != null && Number.isFinite(activeMlScenario.score);
+
+  const mlNotCalculatedMessage =
+    !mlInferenceAvailable ?
+      "Not calculated yet—the prediction service is not connected, so we can’t generate an estimate for this combination."
+    : !activeMlScenario ?
+      "Not calculated yet—there isn’t enough data for this combination in the period you selected."
+    : !Number.isFinite(activeMlScenario.score) ?
+      "Not calculated yet—not enough reliable data for this combination."
+    : null;
 
   const mlEstimateDisplay = useMemo(
-    () => (activeMlScenario ? formatSocialMlEstimate(activeMlScenario.score) : null),
-    [activeMlScenario],
+    () => (showMlNumeric && activeMlScenario ? formatSocialMlEstimate(activeMlScenario.score) : null),
+    [showMlNumeric, activeMlScenario],
   );
 
   useEffect(() => {
@@ -560,7 +593,7 @@ export default function SocialMediaInsightsPage() {
                     onValueChange={(v) => {
                       setSelectedPlatform(v);
                       const nextTypes = [
-                        ...new Set(mlScenarios.filter((s) => s.platform === v).map((s) => s.postType)),
+                        ...new Set(mlScenarios.filter((s) => s.platform === v.trim()).map((s) => s.postType)),
                       ].sort((a, b) => a.localeCompare(b));
                       setSelectedPostType(nextTypes[0] ?? "");
                     }}
@@ -598,12 +631,16 @@ export default function SocialMediaInsightsPage() {
                 </div>
               </div>
 
-              {mlEstimateDisplay && activeMlScenario ? (
+              {showMlNumeric && mlEstimateDisplay ? (
                 <div className="rounded-xl border border-border bg-muted/30 p-6 sm:p-8 space-y-3">
                   <p className="text-4xl sm:text-5xl font-heading font-bold tabular-nums tracking-tight text-foreground">
                     {mlEstimateDisplay.headline}
                   </p>
                   <p className="text-sm text-muted-foreground max-w-lg leading-relaxed">{mlEstimateDisplay.detail}</p>
+                </div>
+              ) : mlNotCalculatedMessage ? (
+                <div className="rounded-xl border border-dashed border-border bg-muted/20 p-6 sm:p-8">
+                  <p className="text-base font-medium text-foreground max-w-lg leading-relaxed">{mlNotCalculatedMessage}</p>
                 </div>
               ) : null}
 

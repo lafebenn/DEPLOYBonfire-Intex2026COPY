@@ -80,6 +80,40 @@ public class PublicImpactSnapshot
     public DateOnly? PublishedAt { get; set; }
 }
 
+/// <summary>Internal staff log of generated report runs (not public impact snapshots).</summary>
+public class StaffReportRun
+{
+    [Key]
+    public int StaffReportRunId { get; set; }
+
+    public DateTime CreatedAt { get; set; }
+
+    /// <summary>ASP.NET Identity user id, if available.</summary>
+    public string? CreatedByUserId { get; set; }
+
+    [MaxLength(200)]
+    public string TemplateTitle { get; set; } = string.Empty;
+
+    public DateOnly ReportingPeriodStart { get; set; }
+    public DateOnly ReportingPeriodEnd { get; set; }
+
+    public int? SafehouseId { get; set; }
+
+    [ForeignKey(nameof(SafehouseId))]
+    public Safehouse? Safehouse { get; set; }
+
+    [MaxLength(300)]
+    public string Title { get; set; } = string.Empty;
+
+    public string? Notes { get; set; }
+
+    /// <summary>Draft, Final, etc.</summary>
+    [MaxLength(50)]
+    public string Status { get; set; } = "Draft";
+
+    public string? ParametersJson { get; set; }
+}
+
 public class MlPrediction
 {
     [Key]

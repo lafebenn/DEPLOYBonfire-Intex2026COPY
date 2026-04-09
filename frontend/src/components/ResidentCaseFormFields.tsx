@@ -1,10 +1,22 @@
+import { useMemo } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { ResidentCaseWrite } from "@/lib/residentCaseWrite";
-import { CASE_STATUSES, RISK_LEVELS } from "@/lib/residentCaseConstants";
+import {
+  BIRTH_STATUSES,
+  CASE_CATEGORIES,
+  CASE_STATUSES,
+  PWD_TYPES,
+  REFERRAL_SOURCES,
+  RELIGIONS,
+  REINTEGRATION_STATUSES,
+  REINTEGRATION_TYPES,
+  RISK_LEVELS,
+} from "@/lib/residentCaseConstants";
+import { cn } from "@/lib/utils";
 
 export type SafehouseOption = { safehouseId: number; name: string; safehouseCode?: string };
 
@@ -24,8 +36,50 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
   );
 }
 
+function FlagToggleRow({
+  checked,
+  onCheckedChange,
+  label,
+}: {
+  checked: boolean;
+  onCheckedChange: (c: boolean) => void;
+  label: string;
+}) {
+  return (
+    <label
+      className={cn(
+        "flex items-center gap-3 text-sm rounded-lg border p-3 transition-colors cursor-pointer",
+        checked ? "border-primary/50 bg-primary/10 shadow-sm" : "border-border bg-card hover:bg-muted/40",
+      )}
+    >
+      <Checkbox checked={checked} onCheckedChange={(c) => onCheckedChange(c === true)} className="shrink-0" />
+      <span className="leading-snug">{label}</span>
+    </label>
+  );
+}
+
+function withLegacyOption<T extends readonly string[]>(list: T, current: string): string[] {
+  const base = [...list] as string[];
+  if (current && !base.includes(current)) base.unshift(current);
+  return base;
+}
+
 export function ResidentCaseFormFields({ form, patch, safehouses, idPrefix = "rc" }: Props) {
   const id = (suffix: string) => `${idPrefix}-${suffix}`;
+
+  const categoryItems = useMemo(() => withLegacyOption(CASE_CATEGORIES, form.caseCategory), [form.caseCategory]);
+  const birthItems = useMemo(() => withLegacyOption(BIRTH_STATUSES, form.birthStatus), [form.birthStatus]);
+  const religionItems = useMemo(() => withLegacyOption(RELIGIONS, form.religion), [form.religion]);
+  const referralItems = useMemo(() => withLegacyOption(REFERRAL_SOURCES, form.referralSource), [form.referralSource]);
+  const reintTypeItems = useMemo(
+    () => withLegacyOption(REINTEGRATION_TYPES, form.reintegrationType ?? ""),
+    [form.reintegrationType],
+  );
+  const reintStatusItems = useMemo(
+    () => withLegacyOption(REINTEGRATION_STATUSES, form.reintegrationStatus ?? ""),
+    [form.reintegrationStatus],
+  );
+  const pwdTypeItems = useMemo(() => withLegacyOption(PWD_TYPES, form.pwdType ?? ""), [form.pwdType]);
 
   return (
     <div className="space-y-4">
@@ -74,8 +128,19 @@ export function ResidentCaseFormFields({ form, patch, safehouses, idPrefix = "rc
           </Select>
         </div>
         <div className="space-y-2 sm:col-span-2">
-          <Label htmlFor={id("cat")}>Case category / program</Label>
-          <Input id={id("cat")} value={form.caseCategory} onChange={(e) => patch("caseCategory", e.target.value)} />
+          <Label>Case category / program</Label>
+          <Select value={form.caseCategory || categoryItems[0]!} onValueChange={(v) => patch("caseCategory", v)}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {categoryItems.map((s) => (
+                <SelectItem key={s} value={s}>
+                  {s}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
@@ -98,16 +163,38 @@ export function ResidentCaseFormFields({ form, patch, safehouses, idPrefix = "rc
           <Input id={id("dob")} type="date" value={form.dateOfBirth} onChange={(e) => patch("dateOfBirth", e.target.value)} />
         </div>
         <div className="space-y-2">
-          <Label htmlFor={id("birth")}>Birth status</Label>
-          <Input id={id("birth")} value={form.birthStatus} onChange={(e) => patch("birthStatus", e.target.value)} />
+          <Label>Birth status</Label>
+          <Select value={form.birthStatus || birthItems[0]!} onValueChange={(v) => patch("birthStatus", v)}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {birthItems.map((s) => (
+                <SelectItem key={s} value={s}>
+                  {s}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         <div className="space-y-2">
           <Label htmlFor={id("pob")}>Place of birth</Label>
           <Input id={id("pob")} value={form.placeOfBirth} onChange={(e) => patch("placeOfBirth", e.target.value)} />
         </div>
         <div className="space-y-2 sm:col-span-2">
-          <Label htmlFor={id("rel")}>Religion</Label>
-          <Input id={id("rel")} value={form.religion} onChange={(e) => patch("religion", e.target.value)} />
+          <Label>Religion</Label>
+          <Select value={form.religion || religionItems[0]!} onValueChange={(v) => patch("religion", v)}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {religionItems.map((s) => (
+                <SelectItem key={s} value={s}>
+                  {s}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
@@ -165,20 +252,42 @@ export function ResidentCaseFormFields({ form, patch, safehouses, idPrefix = "rc
           </Select>
         </div>
         <div className="space-y-2">
-          <Label htmlFor={id("reint-type")}>Reintegration type</Label>
-          <Input
-            id={id("reint-type")}
-            value={form.reintegrationType ?? ""}
-            onChange={(e) => patch("reintegrationType", e.target.value.trim() === "" ? null : e.target.value)}
-          />
+          <Label>Reintegration type</Label>
+          <Select
+            value={form.reintegrationType ?? "__none__"}
+            onValueChange={(v) => patch("reintegrationType", v === "__none__" ? null : v)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__none__">Not set</SelectItem>
+              {reintTypeItems.map((s) => (
+                <SelectItem key={s} value={s}>
+                  {s}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         <div className="space-y-2">
-          <Label htmlFor={id("reint-st")}>Reintegration status</Label>
-          <Input
-            id={id("reint-st")}
-            value={form.reintegrationStatus ?? ""}
-            onChange={(e) => patch("reintegrationStatus", e.target.value.trim() === "" ? null : e.target.value)}
-          />
+          <Label>Reintegration status</Label>
+          <Select
+            value={form.reintegrationStatus ?? "__none__"}
+            onValueChange={(v) => patch("reintegrationStatus", v === "__none__" ? null : v)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__none__">Not set</SelectItem>
+              {reintStatusItems.map((s) => (
+                <SelectItem key={s} value={s}>
+                  {s}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
@@ -198,10 +307,12 @@ export function ResidentCaseFormFields({ form, patch, safehouses, idPrefix = "rc
             ["subCatChildWithHiv", "Child with HIV"],
           ] as const
         ).map(([key, label]) => (
-          <label key={key} className="flex items-center gap-2 text-sm">
-            <Checkbox checked={form[key]} onCheckedChange={(c) => patch(key, c === true)} />
-            {label}
-          </label>
+          <FlagToggleRow
+            key={key}
+            checked={form[key]}
+            onCheckedChange={(c) => patch(key, c)}
+            label={label}
+          />
         ))}
       </div>
 
@@ -216,35 +327,42 @@ export function ResidentCaseFormFields({ form, patch, safehouses, idPrefix = "rc
             ["familyInformalSettler", "Informal settler / homeless"],
           ] as const
         ).map(([key, label]) => (
-          <label key={key} className="flex items-center gap-2 text-sm">
-            <Checkbox checked={form[key]} onCheckedChange={(c) => patch(key, c === true)} />
-            {label}
-          </label>
+          <FlagToggleRow key={key} checked={form[key]} onCheckedChange={(c) => patch(key, c)} label={label} />
         ))}
       </div>
 
       <SectionTitle>Disability & special needs</SectionTitle>
       <div className="grid sm:grid-cols-2 gap-4">
-        <label className="flex items-center gap-2 text-sm">
-          <Checkbox checked={form.isPwd} onCheckedChange={(c) => patch("isPwd", c === true)} />
-          PWD
-        </label>
-        <label className="flex items-center gap-2 text-sm">
-          <Checkbox checked={form.hasSpecialNeeds} onCheckedChange={(c) => patch("hasSpecialNeeds", c === true)} />
-          Special needs
-        </label>
+        <FlagToggleRow checked={form.isPwd} onCheckedChange={(c) => patch("isPwd", c)} label="PWD" />
+        <FlagToggleRow
+          checked={form.hasSpecialNeeds}
+          onCheckedChange={(c) => patch("hasSpecialNeeds", c)}
+          label="Special needs"
+        />
         <div className="space-y-2 sm:col-span-2">
-          <Label htmlFor={id("pwd")}>PWD type</Label>
-          <Input
-            id={id("pwd")}
-            value={form.pwdType ?? ""}
-            onChange={(e) => patch("pwdType", e.target.value.trim() === "" ? null : e.target.value)}
-          />
+          <Label>PWD type</Label>
+          <Select
+            value={form.pwdType ?? "__none__"}
+            onValueChange={(v) => patch("pwdType", v === "__none__" ? null : v)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__none__">Not specified</SelectItem>
+              {pwdTypeItems.map((s) => (
+                <SelectItem key={s} value={s}>
+                  {s}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         <div className="space-y-2 sm:col-span-2">
           <Label htmlFor={id("sn")}>Special needs notes</Label>
-          <Input
+          <Textarea
             id={id("sn")}
+            rows={2}
             value={form.specialNeedsDiagnosis ?? ""}
             onChange={(e) => patch("specialNeedsDiagnosis", e.target.value.trim() === "" ? null : e.target.value)}
           />
@@ -254,8 +372,19 @@ export function ResidentCaseFormFields({ form, patch, safehouses, idPrefix = "rc
       <SectionTitle>Referral & assignment</SectionTitle>
       <div className="grid gap-4">
         <div className="space-y-2">
-          <Label htmlFor={id("ref-src")}>Referral source</Label>
-          <Input id={id("ref-src")} value={form.referralSource} onChange={(e) => patch("referralSource", e.target.value)} />
+          <Label>Referral source</Label>
+          <Select value={form.referralSource || referralItems[0]!} onValueChange={(v) => patch("referralSource", v)}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {referralItems.map((s) => (
+                <SelectItem key={s} value={s}>
+                  {s}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         <div className="space-y-2">
           <Label htmlFor={id("ref-person")}>Referring agency / person</Label>

@@ -25,6 +25,7 @@ public class AppDbContext : IdentityDbContext<AppUser>
     public DbSet<SocialMediaPost> SocialMediaPosts => Set<SocialMediaPost>();
     public DbSet<SafehouseMonthlyMetric> SafehouseMonthlyMetrics => Set<SafehouseMonthlyMetric>();
     public DbSet<PublicImpactSnapshot> PublicImpactSnapshots => Set<PublicImpactSnapshot>();
+    public DbSet<StaffReportRun> StaffReportRuns => Set<StaffReportRun>();
     public DbSet<MlPrediction> MlPredictions => Set<MlPrediction>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -163,6 +164,14 @@ public class AppDbContext : IdentityDbContext<AppUser>
         modelBuilder.Entity<MlPrediction>(e =>
         {
             e.HasIndex(p => new { p.PredictionType, p.EntityType, p.EntityId, p.PredictedAt });
+        });
+
+        modelBuilder.Entity<StaffReportRun>(e =>
+        {
+            e.HasOne(x => x.Safehouse)
+                .WithMany()
+                .HasForeignKey(x => x.SafehouseId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
     }
 }

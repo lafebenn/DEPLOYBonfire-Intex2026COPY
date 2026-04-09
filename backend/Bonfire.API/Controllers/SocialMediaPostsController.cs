@@ -5,6 +5,7 @@ using Bonfire.API.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 
 namespace Bonfire.API.Controllers;
 
@@ -17,17 +18,20 @@ public class SocialMediaPostsController : ControllerBase
     private readonly SanitizerService _s;
     private readonly MlService _ml;
     private readonly ILogger<SocialMediaPostsController> _logger;
+    private readonly IConfiguration _configuration;
 
     public SocialMediaPostsController(
         AppDbContext db,
         SanitizerService s,
         MlService ml,
-        ILogger<SocialMediaPostsController> logger)
+        ILogger<SocialMediaPostsController> logger,
+        IConfiguration configuration)
     {
         _db = db;
         _s = s;
         _ml = ml;
         _logger = logger;
+        _configuration = configuration;
     }
 
     [HttpGet]
@@ -277,8 +281,11 @@ public class SocialMediaPostsController : ControllerBase
             }
         }
 
+        var mlInferenceAvailable = !string.IsNullOrWhiteSpace(_configuration["ML_API_URL"]?.Trim());
+
         var response = new
         {
+            mlInferenceAvailable,
             period = new
             {
                 dateFrom = from,

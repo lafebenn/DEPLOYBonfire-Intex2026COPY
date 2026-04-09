@@ -83,6 +83,12 @@ export function pickMlProxyScore(raw: unknown): number | null {
       "predicted_score",
       "prediction",
       "donation_score",
+      "predicted_donation_referrals",
+      "predictedDonationReferrals",
+      "expected_giving",
+      "expectedGiving",
+      "giving_score",
+      "givingScore",
     ]) {
       const v = o[k];
       if (typeof v === "number" && Number.isFinite(v)) return v;
@@ -149,10 +155,22 @@ function readRecordString(row: Record<string, unknown>, ...keys: string[]): stri
   return null;
 }
 
+function mergeMlNestedFields(row: Record<string, unknown>): Record<string, unknown> {
+  const merged: Record<string, unknown> = { ...row };
+  for (const k of ["prediction", "result", "output", "data"]) {
+    const inner = row[k];
+    if (inner && typeof inner === "object" && !Array.isArray(inner)) {
+      Object.assign(merged, inner as Record<string, unknown>);
+    }
+  }
+  return merged;
+}
+
 /** Parse live ML proxy JSON from /api/prediction/resident-risk/:id (matches Python predict_risk output shape). */
 export function parseResidentRiskMlResponse(raw: unknown): ResidentRiskMlDisplay | null {
-  const row = unwrapMlRecord(raw);
-  if (!row) return null;
+  const base = unwrapMlRecord(raw);
+  if (!base) return null;
+  const row = mergeMlNestedFields(base);
 
   const elevated = readRecordNumber(row, "confidence_elevated", "confidenceElevated");
   const standard = readRecordNumber(row, "confidence_standard", "confidenceStandard");
@@ -433,6 +451,32 @@ export const donorPortalApi = {
 };
 
 /** --- Social --- */
+export type StaffReportRunRow = {
+  staffReportRunId: number;
+  createdAt: string;
+  createdByUserId: string | null;
+  templateTitle: string;
+  reportingPeriodStart: string;
+  reportingPeriodEnd: string;
+  safehouseId: number | null;
+  safehouseName: string | null;
+  title: string;
+  notes: string | null;
+  status: string;
+  parametersJson: string | null;
+};
+
+export const staffReportRunsApi = {
+  list: (take?: number) => {
+    const q = take != null ? `?take=${take}` : "";
+    return request<StaffReportRunRow[]>(`/api/staff-report-runs${q}`);
+  },
+  create: (body: unknown) =>
+    request<{ id: number }>("/api/staff-report-runs", { method: "POST", body: JSON.stringify(body) }),
+  update: (id: number, body: unknown) =>
+    request<unknown>(`/api/staff-report-runs/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+};
+
 export const socialMediaApi = {
   list: (params?: Record<string, string | undefined>) => {
     const q = new URLSearchParams();
