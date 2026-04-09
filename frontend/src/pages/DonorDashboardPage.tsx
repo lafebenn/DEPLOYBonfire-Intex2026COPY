@@ -4,8 +4,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { donorPortalApi } from "@/lib/api";
-import { Heart, History } from "lucide-react";
+import { dashboardApi, donorPortalApi } from "@/lib/api";
+import { computeReportAnalytics, mapDashboardReportsMetrics, type ReportAnalytics } from "@/lib/reportAnalytics";
+import { ReportTemplatePreviewDialog } from "@/components/reports/ReportTemplatePreviewDialog";
+import { FileText, Heart, History } from "lucide-react";
 
 type DonationRow = {
   donationId: number;
@@ -34,6 +36,11 @@ export default function DonorDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const [impactOpen, setImpactOpen] = useState(false);
+  const [impactAnalytics, setImpactAnalytics] = useState<ReportAnalytics | null>(null);
+  const [impactLoading, setImpactLoading] = useState(true);
+  const [impactNote, setImpactNote] = useState<string | null>(null);
+
   async function load() {
     setError(null);
     const res = await donorPortalApi.myDonations();
@@ -56,6 +63,40 @@ export default function DonorDashboardPage() {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    setImpactLoading(true);
+    setImpactNote(null);
+    (async () => {
+      try {
+        const res = await dashboardApi.reportsMetrics({ monthsBack: 12 });
+        if (cancelled) return;
+        if (res.success && res.data != null) {
+          const mapped = mapDashboardReportsMetrics(res.data);
+          if (mapped) {
+            setImpactAnalytics(mapped);
+            setImpactNote(null);
+            return;
+          }
+        }
+        setImpactAnalytics(computeReportAnalytics({ monthsBack: 12 }));
+        setImpactNote(
+          res.success ? "Showing illustrative data until live metrics are available." : (res.message ?? "Using sample data."),
+        );
+      } catch (e) {
+        if (!cancelled) {
+          setImpactAnalytics(computeReportAnalytics({ monthsBack: 12 }));
+          setImpactNote(e instanceof Error ? e.message : "Could not load live metrics.");
+        }
+      } finally {
+        if (!cancelled) setImpactLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const totals = useMemo(() => {
@@ -117,6 +158,30 @@ export default function DonorDashboardPage() {
           </Card>
         </div>
 
+        <Card className="border-primary/20 bg-card/90">
+          <CardContent className="py-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="space-y-2 min-w-0">
+              <p className="font-heading font-semibold text-foreground">Donor Impact Summary</p>
+              <p className="text-sm text-muted-foreground leading-relaxed max-w-xl">
+                A short look at how support shows up in care and programs—counts and high-level shares only, not dollar totals or
+                personal details.
+              </p>
+              {impactLoading ? <p className="text-xs text-muted-foreground font-body">Loading summary…</p> : null}
+              {impactNote ? <p className="text-xs text-amber-800 dark:text-amber-200/90 font-body">{impactNote}</p> : null}
+            </div>
+            <Button
+              type="button"
+              variant="secondary"
+              className="shrink-0 border-secondary/30"
+              disabled={!impactAnalytics || impactLoading}
+              onClick={() => setImpactOpen(true)}
+            >
+              <FileText className="h-4 w-4 mr-2" />
+              View summary
+            </Button>
+          </CardContent>
+        </Card>
+
         <Card className="card-warm">
           <CardContent className="py-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
@@ -171,6 +236,16 @@ export default function DonorDashboardPage() {
             </Table>
           </CardContent>
         </Card>
+
+        {impactAnalytics ? (
+          <ReportTemplatePreviewDialog
+            open={impactOpen}
+            onOpenChange={setImpactOpen}
+            title="Donor Impact Summary"
+            variant="donor-impact"
+            analytics={impactAnalytics}
+          />
+        ) : null}
       </div>
     </div>
   );

@@ -101,9 +101,9 @@ const REPORT_TEMPLATES: ReportTemplate[] = [
   },
   {
     id: "donor-impact-monthly",
-    title: "Donor impact summary (share-safe)",
+    title: "Donor Impact Summary",
     description:
-      "Previous calendar month only: short donor-friendly copy—gift counts and impact stories, no exact dollar amounts. Safe to forward.",
+      "How community giving shows up in care and programs: counts, gentle visuals, and plain language—written for supporters, not internal accounting.",
     lastRun: "Monthly (prior month)",
     exportFn: "donor-impact",
     preview: "donor-impact",
