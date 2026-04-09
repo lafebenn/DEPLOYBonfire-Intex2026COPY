@@ -72,14 +72,8 @@ const App = () => (
                   </ProtectedRoute>
                 }
               />
-              <Route
-                path="/donate"
-                element={
-                  <ProtectedRoute roles={["donor", "admin"]}>
-                    <DonatePage />
-                  </ProtectedRoute>
-                }
-              />
+              {/* Anyone may open /donate; DonatePage gates the form on sign-in internally */}
+              <Route path="/donate" element={<DonatePage />} />
               <Route path="/privacy" element={<PrivacyPage />} />
               <Route path="/cookies" element={<CookiesPage />} />
             </Route>
