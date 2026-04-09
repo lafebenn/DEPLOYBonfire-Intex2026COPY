@@ -1,3 +1,4 @@
+using System.Linq;
 using Bonfire.API.Data;
 using Bonfire.API.Infrastructure;
 using Bonfire.API.Models;
@@ -146,7 +147,9 @@ public class SocialMediaPostsController : ControllerBase
             .OrderByDescending(x => x.estimatedDonationPhp)
             .ToListAsync();
 
-        var bestDays = await q
+        // Group by persisted day label (translatable to SQL). Calendar order is applied in-memory below
+        // (EF Core cannot translate CreatedAt.DayOfWeek in GroupBy for SQL Server).
+        var bestDaysRaw = await q
             .GroupBy(p => p.DayOfWeek)
             .Select(g => new
             {
@@ -157,7 +160,7 @@ public class SocialMediaPostsController : ControllerBase
             })
             .ToListAsync();
 
-        var bestHours = await q
+        var bestHoursRaw = await q
             .GroupBy(p => p.PostHour)
             .Select(g => new
             {
@@ -170,23 +173,38 @@ public class SocialMediaPostsController : ControllerBase
 
         // Composite score: blend normalized reach + engagement + donation referrals.
         // Kept simple and deterministic for now; ML can replace this later.
-        decimal scoreDayMax = 1m;
-        var dayScores = bestDays.Select(d =>
+        var dayScoreByDow = new Dictionary<DayOfWeek, decimal>();
+        foreach (var d in bestDaysRaw)
         {
+            var parsed = ParseSocialDayLabel(d.day);
+            if (!parsed.HasValue) continue;
             var er = d.reach > 0 ? (decimal)d.interactions / d.reach : 0m;
             var score = (decimal)d.reach + (er * 1000m) + (decimal)d.donationReferrals * 500m;
-            if (score > scoreDayMax) scoreDayMax = score;
-            return new { d.day, score };
-        }).ToList();
+            var dow = parsed.Value;
+            dayScoreByDow[dow] = dayScoreByDow.GetValueOrDefault(dow, 0m) + score;
+        }
 
-        decimal scoreHourMax = 1m;
-        var hourScores = bestHours.Select(h =>
+        var fullDayScores = Enum.GetValues<DayOfWeek>()
+            .Cast<DayOfWeek>()
+            .OrderBy(d => (int)d)
+            .Select(dow => new { day = dow.ToString(), score = dayScoreByDow.GetValueOrDefault(dow, 0m) })
+            .ToList();
+
+        var scoreDayMax = Math.Max(1m, fullDayScores.Max(x => x.score));
+
+        var hourScoresRaw = bestHoursRaw.Select(h =>
         {
             var er = h.reach > 0 ? (decimal)h.interactions / h.reach : 0m;
             var score = (decimal)h.reach + (er * 1000m) + (decimal)h.donationReferrals * 500m;
-            if (score > scoreHourMax) scoreHourMax = score;
             return new { h.hour, score };
         }).ToList();
+
+        var hourScoreByHour = hourScoresRaw.ToDictionary(x => x.hour, x => x.score);
+        var fullHourScores = Enumerable.Range(0, 24)
+            .Select(hour => new { hour, score = hourScoreByHour.GetValueOrDefault(hour, 0m) })
+            .ToList();
+
+        var scoreHourMax = Math.Max(1m, fullHourScores.Max(x => x.score));
 
         var topPosts = await q
             .OrderByDescending(p => p.EstimatedDonationValuePhp)
@@ -311,8 +329,8 @@ public class SocialMediaPostsController : ControllerBase
                 estimatedDonationPhp = c.estimatedDonationPhp,
                 c.reach
             }),
-            bestDays = dayScores.Select(d => new { d.day, score = scoreDayMax > 0 ? (double)(d.score / scoreDayMax) : 0.0 }),
-            bestHours = hourScores.Select(h => new { hour = h.hour, score = scoreHourMax > 0 ? (double)(h.score / scoreHourMax) : 0.0 }),
+            bestDays = fullDayScores.Select(d => new { d.day, score = (double)(d.score / scoreDayMax) }),
+            bestHours = fullHourScores.Select(h => new { h.hour, score = (double)(h.score / scoreHourMax) }),
             topPosts,
             insights,
             mlScenarios,
@@ -417,5 +435,25 @@ public class SocialMediaPostsController : ControllerBase
         _db.SocialMediaPosts.Add(e);
         await _db.SaveChangesAsync();
         return StatusCode(201, ApiResponse<object>.Ok(new { id = e.PostId }));
+    }
+
+    /// <summary>Maps imported <see cref="SocialMediaPost.DayOfWeek"/> text to a weekday for calendar ordering.</summary>
+    private static DayOfWeek? ParseSocialDayLabel(string? label)
+    {
+        if (string.IsNullOrWhiteSpace(label)) return null;
+        var t = label.Trim();
+        if (Enum.TryParse<DayOfWeek>(t, true, out var dow)) return dow;
+
+        return t.ToUpperInvariant() switch
+        {
+            "SUN" or "SU" => DayOfWeek.Sunday,
+            "MON" or "MO" => DayOfWeek.Monday,
+            "TUE" or "TUES" or "TU" => DayOfWeek.Tuesday,
+            "WED" or "WE" => DayOfWeek.Wednesday,
+            "THU" or "THUR" or "THURS" => DayOfWeek.Thursday,
+            "FRI" or "FR" => DayOfWeek.Friday,
+            "SAT" or "SA" => DayOfWeek.Saturday,
+            _ => null
+        };
     }
 }

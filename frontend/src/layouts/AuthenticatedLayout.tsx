@@ -15,9 +15,31 @@ import {
   Menu,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
+import { CONSENT_CHANGED_EVENT, mayPersistPreferenceCookies } from "@/lib/cookieConsent";
+
+const SIDEBAR_OPEN_COOKIE = "bonfire_sidebar_open";
+const SIDEBAR_COOKIE_MAX_AGE_SEC = 7 * 24 * 60 * 60;
+
+function readSidebarOpenFromCookie(): boolean | null {
+  if (typeof document === "undefined") return null;
+  const match = document.cookie.match(new RegExp(`(?:^|; )${SIDEBAR_OPEN_COOKIE}=([^;]*)`));
+  if (!match) return null;
+  const raw = decodeURIComponent(match[1]!.replace(/\+/g, " "));
+  if (raw === "true") return true;
+  if (raw === "false") return false;
+  return null;
+}
+
+function writeSidebarOpenCookie(open: boolean) {
+  document.cookie = `${SIDEBAR_OPEN_COOKIE}=${open ? "true" : "false"}; Path=/; Max-Age=${SIDEBAR_COOKIE_MAX_AGE_SEC}; SameSite=Lax`;
+}
+
+function deleteSidebarOpenCookie() {
+  document.cookie = `${SIDEBAR_OPEN_COOKIE}=; Path=/; Max-Age=0; SameSite=Lax`;
+}
 
 const navItems = [
   { title: "Dashboard", url: "/app", icon: LayoutDashboard, roles: ["admin", "staff", "fundraising_director"] },
@@ -116,7 +138,22 @@ function DesktopSidebar({
   userRole: string;
   onLogout: () => void;
 }) {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
+    if (typeof document === "undefined") return true;
+    if (!mayPersistPreferenceCookies()) return true;
+    return readSidebarOpenFromCookie() ?? true;
+  });
+
+  useEffect(() => {
+    const onConsentChanged = () => {
+      if (!mayPersistPreferenceCookies()) {
+        deleteSidebarOpenCookie();
+        setSidebarOpen(true);
+      }
+    };
+    window.addEventListener(CONSENT_CHANGED_EVENT, onConsentChanged);
+    return () => window.removeEventListener(CONSENT_CHANGED_EVENT, onConsentChanged);
+  }, []);
 
   return (
     <aside
@@ -129,11 +166,11 @@ function DesktopSidebar({
         {sidebarOpen ? (
           <BonfireLogo variant="sidebar" />
         ) : (
-          <div className="mx-auto">
-            <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
+          <Link to="/app" aria-label="Go to dashboard" className="mx-auto">
+            <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center hover:bg-primary/30 transition-colors">
               <span className="text-primary font-heading font-bold text-sm">B</span>
             </div>
-          </div>
+          </Link>
         )}
       </div>
 
@@ -175,7 +212,13 @@ function DesktopSidebar({
             type="button"
             variant="ghost"
             size="icon"
-            onClick={() => setSidebarOpen(!sidebarOpen)}
+            onClick={() => {
+              setSidebarOpen((prev) => {
+                const next = !prev;
+                if (mayPersistPreferenceCookies()) writeSidebarOpenCookie(next);
+                return next;
+              });
+            }}
             className="text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
             aria-label="Toggle sidebar"
           >

@@ -343,7 +343,7 @@ export default function AdminDashboard() {
             </p>
           ) : (
             <ul className="divide-y divide-border rounded-xl border border-border overflow-hidden bg-card">
-              {attentionList.map((r) => (
+              {attentionList.map((r, index) => (
                 <li key={r.residentId}>
                   <Link
                     to={`/app/caseload/${r.residentId}`}
@@ -352,6 +352,30 @@ export default function AdminDashboard() {
                     <Flame className={`shrink-0 mt-0.5 ${flameClass(r.flameLevel)}`} aria-hidden />
                     <div className="flex-1 min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
+                        {index === 0 ? (
+                          <span
+                            className="inline-flex items-center rounded-md border border-amber-500/50 bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-900 dark:text-amber-200"
+                            title="Highest attention score"
+                          >
+                            #1
+                          </span>
+                        ) : null}
+                        {index === 1 ? (
+                          <span
+                            className="inline-flex items-center rounded-md border border-slate-400/50 bg-slate-400/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-800 dark:text-slate-200"
+                            title="Second highest attention score"
+                          >
+                            #2
+                          </span>
+                        ) : null}
+                        {index === 2 ? (
+                          <span
+                            className="inline-flex items-center rounded-md border border-orange-700/40 bg-orange-800/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-orange-950 dark:text-orange-200"
+                            title="Third highest attention score"
+                          >
+                            #3
+                          </span>
+                        ) : null}
                         <span className="font-medium text-foreground">{r.displayName}</span>
                         {r.caseControlNo && r.caseControlNo !== r.displayName ? (
                           <span className="text-xs text-muted-foreground">({r.caseControlNo})</span>
