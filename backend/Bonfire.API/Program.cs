@@ -236,6 +236,15 @@ using (var scope = app.Services.CreateScope())
             var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("Seed");
             await DbSeeder.SeedAsync(scope.ServiceProvider, logger);
         }
+
+        var seedPresentation =
+            string.Equals(Environment.GetEnvironmentVariable("SEED_PRESENTATION_DATA"), "true", StringComparison.OrdinalIgnoreCase)
+            || app.Configuration.GetValue<bool>("SeedPresentationData");
+        if (seedPresentation)
+        {
+            var presLogger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("PresentationSeed");
+            await PresentationStorySeeder.SeedAsync(db, presLogger);
+        }
     }
     catch (Exception ex)
     {
