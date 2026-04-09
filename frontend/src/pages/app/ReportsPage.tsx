@@ -482,7 +482,7 @@ export default function ReportsPage() {
         <CardHeader className="pb-2">
           <CardTitle className="font-heading text-base">Reporting context</CardTitle>
           <CardDescription className="font-body text-sm leading-relaxed">
-            Use this page for staff decision-making and INTEX-required reporting: donation trends, outcome metrics
+            Use this page for staff decision-making and organizational reporting: donation trends, outcome metrics
             (education + health), safehouse comparisons, and reintegration tracking. Exports are aggregate-only.
           </CardDescription>
         </CardHeader>
