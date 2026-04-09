@@ -285,10 +285,23 @@ export default function SupporterProfilePage() {
     setGivingMlError(null);
     fetchDonorGivingPrediction(profile.supporterId)
       .then((raw) => {
-        if (!cancelled) setGivingMlScore(pickMlProxyScore(raw));
+        if (cancelled) return;
+        if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+          const o = raw as Record<string, unknown>;
+          if (o.insufficient_data === true) {
+            setGivingMlScore(null);
+            setGivingMlError(null);
+            return;
+          }
+        }
+        setGivingMlScore(pickMlProxyScore(raw));
       })
-      .catch((e: unknown) => {
-        if (!cancelled) setGivingMlError(e instanceof Error ? e.message : "Could not load donor-giving ML");
+      .catch(() => {
+        if (!cancelled) {
+          setGivingMlError(
+            "There isn’t enough donation history to estimate giving potential yet, or the estimate couldn’t be loaded.",
+          );
+        }
       })
       .finally(() => {
         if (!cancelled) setGivingMlLoading(false);
@@ -610,7 +623,7 @@ export default function SupporterProfilePage() {
             {givingMlLoading ? (
               <p className="text-muted-foreground">Loading…</p>
             ) : givingMlError ? (
-              <p className="text-destructive text-xs">{givingMlError}</p>
+              <p className="text-muted-foreground text-sm leading-relaxed">{givingMlError}</p>
             ) : givingMlScore != null ? (
               <p className="text-2xl font-heading font-bold tabular-nums">
                 {(() => {

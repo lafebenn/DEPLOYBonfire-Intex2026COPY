@@ -43,6 +43,14 @@ public sealed class DonorGivingPredictPayload
     public List<DonorGivingMlRow> Supporters { get; set; } = [];
 }
 
+/// <summary>Result of building a donor-giving ML row: missing supporter, no gifts yet, or row ready for Python.</summary>
+public sealed class DonorGivingMapOutcome
+{
+    public bool SupporterNotFound { get; init; }
+    public bool InsufficientDonationHistory { get; init; }
+    public DonorGivingMlRow? Row { get; init; }
+}
+
 public sealed class SocialMediaPredictPayload
 {
     [JsonPropertyName("posts")]
@@ -175,8 +183,7 @@ public sealed class DonorLapseMlRow
 }
 
 /// <summary>
-/// Donor giving model features. Basic supporter fields only;
-/// TODO: Align with Python API preprocessing for engineered / patsy-style categorical encodings.
+/// Donor giving model features. Must satisfy Python <c>DonorGivingSupporter</c> (donation aggregates or non-empty donations).
 /// </summary>
 public sealed class DonorGivingMlRow
 {
@@ -189,11 +196,28 @@ public sealed class DonorGivingMlRow
     [JsonPropertyName("acquisition_channel")]
     public string AcquisitionChannel { get; set; } = "";
 
+    [JsonPropertyName("relationship_type")]
+    public string RelationshipType { get; set; } = "";
+
     [JsonPropertyName("region")]
     public string Region { get; set; } = "";
 
     [JsonPropertyName("country")]
     public string Country { get; set; } = "";
+
+    [JsonPropertyName("n_donations")]
+    public int NDonations { get; set; }
+
+    [JsonPropertyName("tenure_days")]
+    public double TenureDays { get; set; }
+
+    /// <summary>ISO date yyyy-MM-dd (first gift).</summary>
+    [JsonPropertyName("first_donation")]
+    public string FirstDonation { get; set; } = "";
+
+    /// <summary>ISO date yyyy-MM-dd (most recent gift).</summary>
+    [JsonPropertyName("last_donation")]
+    public string LastDonation { get; set; } = "";
 }
 
 public sealed class SocialMediaMlRow
