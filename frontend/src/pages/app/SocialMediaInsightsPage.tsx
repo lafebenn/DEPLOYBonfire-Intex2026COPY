@@ -227,12 +227,16 @@ export default function SocialMediaInsightsPage() {
     return mlScenarios.find((s) => s.platform === p && s.postType === t) ?? null;
   }, [mlScenarios, selectedPlatform, selectedPostType]);
 
-  const showMlNumeric =
+  const mlHasFiniteScore =
     mlInferenceAvailable && activeMlScenario != null && Number.isFinite(activeMlScenario.score);
+
+  const showMlPercentage = mlHasFiniteScore && activeMlScenario!.score > 0;
+
+  const showMlLowImpact = mlHasFiniteScore && activeMlScenario!.score === 0;
 
   const mlNotCalculatedMessage =
     !mlInferenceAvailable ?
-      "Not calculated yet—the prediction service is not connected, so we can’t generate an estimate for this combination."
+      "Unavailable — the prediction service is not connected, so we can’t generate an estimate for this combination."
     : !activeMlScenario ?
       "Not calculated yet—there isn’t enough data for this combination in the period you selected."
     : !Number.isFinite(activeMlScenario.score) ?
@@ -240,8 +244,8 @@ export default function SocialMediaInsightsPage() {
     : null;
 
   const mlEstimateDisplay = useMemo(
-    () => (showMlNumeric && activeMlScenario ? formatSocialMlEstimate(activeMlScenario.score) : null),
-    [showMlNumeric, activeMlScenario],
+    () => (showMlPercentage && activeMlScenario ? formatSocialMlEstimate(activeMlScenario.score) : null),
+    [showMlPercentage, activeMlScenario],
   );
 
   useEffect(() => {
@@ -631,12 +635,22 @@ export default function SocialMediaInsightsPage() {
                 </div>
               </div>
 
-              {showMlNumeric && mlEstimateDisplay ? (
+              {showMlPercentage && mlEstimateDisplay ? (
                 <div className="rounded-xl border border-border bg-muted/30 p-6 sm:p-8 space-y-3">
                   <p className="text-4xl sm:text-5xl font-heading font-bold tabular-nums tracking-tight text-foreground">
                     {mlEstimateDisplay.headline}
                   </p>
                   <p className="text-sm text-muted-foreground max-w-lg leading-relaxed">{mlEstimateDisplay.detail}</p>
+                </div>
+              ) : showMlLowImpact ? (
+                <div className="rounded-xl border border-border bg-muted/30 p-6 sm:p-8 space-y-3">
+                  <Badge variant="secondary" className="text-sm font-medium">
+                    Low predicted impact
+                  </Badge>
+                  <p className="text-sm text-muted-foreground max-w-lg leading-relaxed">
+                    The model ran successfully for this combination but predicts minimal donation-referral signal from posts
+                    like this in your selected period.
+                  </p>
                 </div>
               ) : mlNotCalculatedMessage ? (
                 <div className="rounded-xl border border-dashed border-border bg-muted/20 p-6 sm:p-8">

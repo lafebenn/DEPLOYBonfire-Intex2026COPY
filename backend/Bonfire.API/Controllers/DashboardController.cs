@@ -153,10 +153,10 @@ public class DashboardController : ControllerBase
             .Select(r => new ResidentAttentionScoreComputer.ActiveResidentRow
             {
                 ResidentId = r.ResidentId,
-                CaseControlNo = r.CaseControlNo,
-                InternalCode = r.InternalCode,
+                CaseControlNo = r.CaseControlNo ?? "",
+                InternalCode = r.InternalCode ?? "",
                 CurrentRiskLevel = r.CurrentRiskLevel ?? "",
-                SafehouseName = r.Safehouse != null ? r.Safehouse.Name : ""
+                SafehouseName = r.Safehouse != null ? r.Safehouse.Name ?? "" : ""
             })
             .ToListAsync();
 
