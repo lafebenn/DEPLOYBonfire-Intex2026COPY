@@ -2,7 +2,7 @@ import { Outlet, Link } from "react-router-dom";
 import { NavLink } from "@/components/NavLink";
 import { BonfireLogo } from "@/components/BonfireLogo";
 import { Button } from "@/components/ui/button";
-import { CookieConsentBanner, CookieSettingsLink } from "@/components/CookieConsentBanner";
+import { CookieSettingsLink } from "@/components/CookieConsentBanner";
 import { useAuth } from "@/contexts/AuthContext";
 
 export default function PublicLayout() {
@@ -93,8 +93,6 @@ export default function PublicLayout() {
           </div>
         </div>
       </footer>
-
-      <CookieConsentBanner />
     </div>
   );
 }

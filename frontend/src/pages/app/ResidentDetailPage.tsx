@@ -25,7 +25,7 @@ import {
   Users,
   AlertTriangle,
 } from "lucide-react";
-import { fetchResidentRiskPrediction, pickMlProxyScore, residentsApi } from "@/lib/api";
+import { fetchResidentRiskPrediction, parseResidentRiskMlResponse, pickMlProxyScore, residentsApi } from "@/lib/api";
 import { ResidentCaseEditDialog } from "@/components/ResidentCaseEditDialog";
 import { residentGetToWritePayload, type ResidentCaseWrite } from "@/lib/residentCaseWrite";
 import { useToast } from "@/hooks/use-toast";
@@ -381,10 +381,12 @@ export default function ResidentDetailPage() {
                 </Badge>
               </div>
             </div>
-            <div className="rounded-lg border border-border/60 bg-muted/20 p-3 space-y-2">
-              <p className="text-xs font-medium text-foreground">ML risk estimate (via API)</p>
+            <div className="rounded-lg border border-border/60 bg-muted/20 p-3 space-y-3">
+              <p className="text-xs font-medium text-foreground">ML risk (resident retention pipeline)</p>
               <p className="text-xs text-muted-foreground leading-relaxed">
-                Served by the Bonfire API proxy; the browser does not call the Python service directly.
+                Same contract as <code className="text-[10px]">predict_risk()</code> in{" "}
+                <code className="text-[10px]">resident-risk-retention-detection.ipynb</code>: model label, P(Elevated),
+                combined alert, and safety rules. Proxied via API; browser does not call Python directly.
               </p>
               {mlPredLoading ? (
                 <p className="text-xs text-muted-foreground">Loading…</p>
@@ -392,6 +394,75 @@ export default function ResidentDetailPage() {
                 <p className="text-xs text-destructive">{mlPredError}</p>
               ) : (
                 (() => {
+                  const parsed = parseResidentRiskMlResponse(mlPred);
+                  if (parsed) {
+                    const elevatedPct =
+                      parsed.confidenceElevated != null
+                        ? `${Math.round(parsed.confidenceElevated * 1000) / 10}%`
+                        : null;
+                    const standardPct =
+                      parsed.confidenceStandard != null
+                        ? `${Math.round(parsed.confidenceStandard * 1000) / 10}%`
+                        : null;
+                    const looksElevated =
+                      parsed.combinedAlert?.toLowerCase().includes("elevated") ||
+                      parsed.predictedLabel?.toLowerCase().includes("elevated");
+                    const alertVariant = looksElevated ? "destructive" : "secondary";
+                    return (
+                      <div className="space-y-2 text-sm">
+                        {(parsed.combinedAlert || parsed.predictedLabel) && (
+                          <div className="flex flex-wrap items-center gap-2">
+                            {parsed.combinedAlert && (
+                              <Badge variant={alertVariant} className="font-normal">
+                                Combined: {parsed.combinedAlert}
+                              </Badge>
+                            )}
+                            {parsed.predictedLabel && (
+                              <Badge variant="outline" className="font-normal">
+                                Model: {parsed.predictedLabel}
+                              </Badge>
+                            )}
+                          </div>
+                        )}
+                        {(elevatedPct || standardPct) && (
+                          <p className="text-xs text-muted-foreground">
+                            {elevatedPct && (
+                              <span>
+                                P(Elevated):{" "}
+                                <span className="font-mono text-foreground font-medium">{elevatedPct}</span>
+                              </span>
+                            )}
+                            {elevatedPct && standardPct ? " · " : null}
+                            {standardPct && (
+                              <span>
+                                P(Standard):{" "}
+                                <span className="font-mono text-foreground font-medium">{standardPct}</span>
+                              </span>
+                            )}
+                          </p>
+                        )}
+                        {parsed.ruleFlag === true &&
+                          parsed.rulesTriggered &&
+                          parsed.rulesTriggered.toLowerCase() !== "none" && (
+                            <p className="text-xs text-amber-800 dark:text-amber-300">
+                              Safety rules triggered: {parsed.rulesTriggered}
+                            </p>
+                          )}
+                        {!parsed.combinedAlert &&
+                          !parsed.predictedLabel &&
+                          !elevatedPct &&
+                          !standardPct && (
+                            <p className="text-xs text-muted-foreground">Partial response; see raw JSON below.</p>
+                          )}
+                        <details className="text-[10px] text-muted-foreground">
+                          <summary className="cursor-pointer select-none">Raw API response</summary>
+                          <pre className="mt-1 leading-snug overflow-auto max-h-28 p-2 rounded-md bg-muted/50">
+                            {JSON.stringify(mlPred, null, 2)}
+                          </pre>
+                        </details>
+                      </div>
+                    );
+                  }
                   const s = pickMlProxyScore(mlPred);
                   if (s != null) {
                     return (
@@ -407,7 +478,12 @@ export default function ResidentDetailPage() {
                       </pre>
                     );
                   }
-                  return <p className="text-xs text-muted-foreground">No data</p>;
+                  return (
+                    <p className="text-xs text-muted-foreground">
+                      No prediction data. Configure <code className="text-[10px]">ML_API_URL</code> on the API or check
+                      the ML service.
+                    </p>
+                  );
                 })()
               )}
             </div>

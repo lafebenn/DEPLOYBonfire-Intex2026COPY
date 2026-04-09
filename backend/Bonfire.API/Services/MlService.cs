@@ -228,11 +228,25 @@ public class MlService
                 score = s.GetDecimal();
             else if (row.TryGetProperty("Score", out var s2))
                 score = s2.GetDecimal();
+            else if (row.TryGetProperty("confidence_elevated", out var ce) && ce.ValueKind == JsonValueKind.Number)
+                score = ce.GetDecimal();
+            else if (row.TryGetProperty("confidenceElevated", out var ce2) && ce2.ValueKind == JsonValueKind.Number)
+                score = ce2.GetDecimal();
+            else if (row.TryGetProperty("confidence_standard", out var cs) && cs.ValueKind == JsonValueKind.Number)
+                score = 1m - cs.GetDecimal();
 
             if (row.TryGetProperty("label", out var l))
                 label = l.GetString();
             else if (row.TryGetProperty("Label", out var l2))
                 label = l2.GetString();
+            else if (row.TryGetProperty("combined_alert", out var ca))
+                label = ca.GetString();
+            else if (row.TryGetProperty("combinedAlert", out var ca2))
+                label = ca2.GetString();
+            else if (row.TryGetProperty("predicted_risk_label", out var pr))
+                label = pr.GetString();
+            else if (row.TryGetProperty("predictedRiskLabel", out var pr2))
+                label = pr2.GetString();
 
             if (row.TryGetProperty("modelVersion", out var m))
                 version = m.GetString() ?? "unknown";

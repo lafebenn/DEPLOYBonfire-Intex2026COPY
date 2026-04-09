@@ -75,7 +75,15 @@ export function pickMlProxyScore(raw: unknown): number | null {
   if (typeof raw === "number" && Number.isFinite(raw)) return raw;
   if (typeof raw === "object" && !Array.isArray(raw)) {
     const o = raw as Record<string, unknown>;
-    for (const k of ["score", "Score", "predicted_score", "prediction", "donation_score"]) {
+    for (const k of [
+      "score",
+      "Score",
+      "confidence_elevated",
+      "confidenceElevated",
+      "predicted_score",
+      "prediction",
+      "donation_score",
+    ]) {
       const v = o[k];
       if (typeof v === "number" && Number.isFinite(v)) return v;
     }
@@ -89,6 +97,92 @@ export function pickMlProxyScore(raw: unknown): number | null {
   }
   if (Array.isArray(raw) && raw.length > 0) return pickMlProxyScore(raw[0]);
   return null;
+}
+
+/** Normalized view for resident-risk-retention pipeline JSON (see ml-pipelines/resident-risk-retention-detection.ipynb). */
+export type ResidentRiskMlDisplay = {
+  /** Model P(Elevated Risk), 0–1 */
+  confidenceElevated: number | null;
+  confidenceStandard: number | null;
+  predictedLabel: string | null;
+  combinedAlert: string | null;
+  rulesTriggered: string | null;
+  ruleFlag: boolean | undefined;
+};
+
+function unwrapMlRecord(raw: unknown): Record<string, unknown> | null {
+  if (raw == null) return null;
+  if (Array.isArray(raw) && raw.length > 0 && typeof raw[0] === "object" && raw[0] !== null) {
+    return raw[0] as Record<string, unknown>;
+  }
+  if (typeof raw === "object" && !Array.isArray(raw)) {
+    const o = raw as Record<string, unknown>;
+    for (const k of ["results", "predictions", "data"]) {
+      const v = o[k];
+      if (Array.isArray(v) && v.length > 0 && typeof v[0] === "object" && v[0] !== null) {
+        return v[0] as Record<string, unknown>;
+      }
+    }
+    return o;
+  }
+  return null;
+}
+
+function readRecordNumber(row: Record<string, unknown>, ...keys: string[]): number | null {
+  for (const k of keys) {
+    const v = row[k];
+    if (typeof v === "number" && Number.isFinite(v)) return v;
+    if (typeof v === "string" && v.trim() !== "") {
+      const n = Number(v);
+      if (Number.isFinite(n)) return n;
+    }
+  }
+  return null;
+}
+
+function readRecordString(row: Record<string, unknown>, ...keys: string[]): string | null {
+  for (const k of keys) {
+    const v = row[k];
+    if (typeof v === "string" && v.trim() !== "") return v;
+    if (Array.isArray(v) && v.length > 0) return v.map(String).join(", ");
+  }
+  return null;
+}
+
+/** Parse live ML proxy JSON from /api/prediction/resident-risk/:id (matches Python predict_risk output shape). */
+export function parseResidentRiskMlResponse(raw: unknown): ResidentRiskMlDisplay | null {
+  const row = unwrapMlRecord(raw);
+  if (!row) return null;
+
+  const elevated = readRecordNumber(row, "confidence_elevated", "confidenceElevated");
+  const standard = readRecordNumber(row, "confidence_standard", "confidenceStandard");
+  const predictedLabel = readRecordString(row, "predicted_risk_label", "predictedRiskLabel");
+  const combinedAlert = readRecordString(row, "combined_alert", "combinedAlert");
+  const rulesTriggered = readRecordString(row, "rules_triggered", "rulesTriggered");
+
+  let ruleFlag: boolean | undefined;
+  if (typeof row.rule_flag === "boolean") ruleFlag = row.rule_flag;
+  else if (typeof row.ruleFlag === "boolean") ruleFlag = row.ruleFlag;
+
+  const hasAny =
+    elevated != null ||
+    standard != null ||
+    predictedLabel != null ||
+    combinedAlert != null ||
+    rulesTriggered != null ||
+    ruleFlag === true ||
+    pickMlProxyScore(raw) != null;
+
+  if (!hasAny) return null;
+
+  return {
+    confidenceElevated: elevated,
+    confidenceStandard: standard,
+    predictedLabel,
+    combinedAlert,
+    rulesTriggered,
+    ruleFlag,
+  };
 }
 
 /** @deprecated Use pickMlProxyScore — kept for call sites that only need resident-risk shape. */

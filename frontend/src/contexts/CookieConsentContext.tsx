@@ -7,11 +7,17 @@ import {
   type ReactNode,
 } from "react";
 import {
-  hasUpToDateConsent,
+  CONSENT_VERSION,
   readStoredConsent,
   saveConsent,
   type StoredConsent,
 } from "@/lib/cookieConsent";
+
+function initialConsentUi(): { consent: StoredConsent | null; showBanner: boolean } {
+  const c = readStoredConsent();
+  const upToDate = c != null && c.version >= CONSENT_VERSION;
+  return { consent: c, showBanner: !upToDate };
+}
 
 type CookieConsentContextValue = {
   consent: StoredConsent | null;
@@ -26,14 +32,13 @@ type CookieConsentContextValue = {
 const CookieConsentContext = createContext<CookieConsentContextValue | null>(null);
 
 export function CookieConsentProvider({ children }: { children: ReactNode }) {
-  const [consent, setConsent] = useState<StoredConsent | null>(() => readStoredConsent());
-  const [showBanner, setShowBanner] = useState(() => !hasUpToDateConsent());
+  const [{ consent, showBanner }, setUi] = useState(initialConsentUi);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   const refresh = useCallback(() => {
     const next = readStoredConsent();
-    setConsent(next);
-    setShowBanner(!hasUpToDateConsent());
+    const upToDate = next != null && next.version >= CONSENT_VERSION;
+    setUi({ consent: next, showBanner: !upToDate });
   }, []);
 
   const acceptPreferences = useCallback(() => {
