@@ -148,6 +148,13 @@ const FACTOR_LABELS: Record<string, string> = {
   caseRiskLevel: "Case risk level",
 };
 
+function attentionLabel(score: number): string {
+  if (score >= 75) return "Attention level: Critical";
+  if (score >= 50) return "Attention level: High";
+  if (score >= 25) return "Attention level: Moderate";
+  return "Attention level: Low";
+}
+
 function flameClass(level: number): string {
   if (level >= 3) return "h-6 w-6 text-red-500 drop-shadow-[0_0_6px_rgba(239,68,68,0.45)]";
   if (level >= 2) return "h-5 w-5 text-orange-500";
@@ -388,7 +395,7 @@ export default function AdminDashboard() {
                       </div>
                       <p className="text-xs text-muted-foreground mt-0.5">
                         {r.safehouseName ? `${r.safehouseName} · ` : ""}
-                        Score {r.compositeScore}
+                        {attentionLabel(r.compositeScore)}
                       </p>
                       <p className="text-xs text-muted-foreground/90 mt-1 leading-snug">{topFactorSummary(r.factors)}</p>
                     </div>

@@ -14,25 +14,24 @@ public static class MlProxyPayloadMappers
             .FirstOrDefaultAsync(x => x.ResidentId == residentId, cancellationToken);
         if (r == null) return null;
 
-        var recentSessions = await db.ProcessRecordings.AsNoTracking()
+        var allSessions = await db.ProcessRecordings.AsNoTracking()
             .Where(p => p.ResidentId == residentId)
             .OrderByDescending(p => p.SessionDate)
-            .Take(10)
             .ToListAsync(cancellationToken);
 
         var negativeStates = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
             "Distressed", "Angry", "Anxious", "Sad", "Withdrawn",
         };
-        decimal avgEmotional = recentSessions.Count == 0
+        decimal avgEmotional = allSessions.Count == 0
             ? 0.5m
-            : (decimal)recentSessions.Count(s => !negativeStates.Contains(s.EmotionalStateObserved ?? ""))
-              / recentSessions.Count;
+            : (decimal)allSessions.Count(s => !negativeStates.Contains(s.EmotionalStateObserved ?? ""))
+              / allSessions.Count;
 
         var recentIncidents = await db.IncidentReports.CountAsync(
             i => i.ResidentId == residentId && i.IncidentDate >= DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-90)),
             cancellationToken);
-        var lastSession = recentSessions.FirstOrDefault();
+        var lastSession = allSessions.FirstOrDefault();
         var daysSinceSession = lastSession == null
             ? 999
             : DateOnly.FromDateTime(DateTime.UtcNow).DayNumber - lastSession.SessionDate.DayNumber;
@@ -75,9 +74,6 @@ public static class MlProxyPayloadMappers
             FollowUpRequired = i.FollowUpRequired,
         }).ToList();
 
-        var allSessions = await db.ProcessRecordings.AsNoTracking()
-            .Where(p => p.ResidentId == residentId)
-            .ToListAsync(cancellationToken);
         var processRows = allSessions.Select(p => new ResidentProcessMlRow
         {
             RecordingId = p.RecordingId,

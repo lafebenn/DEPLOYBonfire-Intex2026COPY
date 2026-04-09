@@ -27,11 +27,79 @@ import {
   AlertTriangle,
   ChevronDown,
 } from "lucide-react";
-import { fetchResidentRiskPrediction, parseResidentRiskMlResponse, pickMlProxyScore, residentsApi } from "@/lib/api";
+import {
+  fetchResidentRiskPrediction,
+  parseResidentRiskMlResponse,
+  pickMlProxyScore,
+  residentsApi,
+  type ResidentRiskMlDisplay,
+} from "@/lib/api";
 import { ResidentCaseEditDialog } from "@/components/ResidentCaseEditDialog";
 import { residentGetToWritePayload, type ResidentCaseWrite } from "@/lib/residentCaseWrite";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+
+function formatRuleExplanation(rule: string): string {
+  const known: Record<string, string> = {
+    pct_safety_concerns_gte_50: "safety concerns were flagged in over 50% of home visits",
+    pct_unresolved_gte_40: "over 40% of this resident's incidents remain unresolved",
+    num_self_harm_gte_2: "two or more self-harm incidents have been recorded",
+    pct_high_severity_gte_30: "over 30% of recorded incidents were rated high severity",
+    num_runaway_attempts_gte_1: "one or more runaway attempts have been recorded",
+    pct_follow_up_required_gte_50: "over 50% of incidents require follow-up",
+    pct_unfavorable_outcome_gte_40: "over 40% of home visits had unfavorable outcomes",
+    pct_distressed_start_gte_60: "distress was noted at the start of over 60% of sessions",
+    pct_uncooperative_family_gte_40: "family cooperation was rated uncooperative in over 40% of visits",
+  };
+  const key = rule.trim();
+  if (known[key]) return known[key];
+  return rule
+    .replace(/_gte_(\d+)/g, " ≥ $1%")
+    .replace(/_lte_(\d+)/g, " ≤ $1%")
+    .replace(/_gt_(\d+)/g, " > $1")
+    .replace(/_lt_(\d+)/g, " < $1")
+    .replace(/^pct_/, "")
+    .replace(/^num_/, "count of ")
+    .replace(/_/g, " ")
+    .trim();
+}
+
+function buildRiskExplanation(parsed: ResidentRiskMlDisplay): string {
+  const trig = parsed.rulesTriggered?.trim() ?? "";
+  const hasOverride =
+    parsed.ruleFlag && trig !== "" && trig.toLowerCase() !== "none";
+  const rules = hasOverride
+    ? trig
+        .split(/,\s*/)
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .map(formatRuleExplanation)
+    : [];
+
+  const combined = (parsed.combinedAlert ?? "").trim();
+  const isElevated = combined.toLowerCase().includes("elevated");
+  const predictedStd = (parsed.predictedLabel ?? "").toLowerCase().includes("standard");
+
+  if (isElevated) {
+    if (hasOverride && predictedStd) {
+      const ruleText =
+        rules.length === 1
+          ? `an automatic safety rule was triggered: ${rules[0]}`
+          : `automatic safety rules were triggered: ${rules.join("; ")}`;
+      return `The model assessed this resident's overall profile as lower risk, but ${ruleText}. This override ensures critical safety indicators are always escalated, even when the broader profile appears stable.`;
+    }
+    if (hasOverride) {
+      const ruleText =
+        rules.length === 1
+          ? `a safety rule was also triggered: ${rules[0]}`
+          : `safety rules were also triggered: ${rules.join("; ")}`;
+      return `The model identified elevated risk patterns in this resident's recent history, and ${ruleText}.`;
+    }
+    return `The model identified elevated risk patterns in this resident's recent history, including their incident record, session engagement, and health and education progress.`;
+  }
+
+  return `The model assessed this resident as standard risk. No automatic safety thresholds were triggered. This reflects their current incident record, session engagement, and health and education progress.`;
+}
 
 const riskVariant: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
   Low: "secondary",
@@ -454,93 +522,55 @@ export default function ResidentDetailPage() {
                 (() => {
                   const parsed = parseResidentRiskMlResponse(mlPred);
                   if (parsed) {
-                    const elevatedPct =
-                      parsed.confidenceElevated != null
-                        ? `${Math.round(parsed.confidenceElevated * 1000) / 10}%`
-                        : null;
-                    const standardPct =
-                      parsed.confidenceStandard != null
-                        ? `${Math.round(parsed.confidenceStandard * 1000) / 10}%`
-                        : null;
                     const looksElevated =
                       parsed.combinedAlert?.toLowerCase().includes("elevated") ||
                       parsed.predictedLabel?.toLowerCase().includes("elevated");
                     const alertVariant = looksElevated ? "destructive" : "secondary";
+                    const rawRuleKeys =
+                      parsed.rulesTriggered
+                        ?.split(/,\s*/)
+                        .map((r) => r.trim())
+                        .filter((r) => r.length > 0 && r.toLowerCase() !== "none") ?? [];
+                    const showRuleBadges = rawRuleKeys.length > 0;
                     return (
                       <div className="space-y-2 text-sm">
                         {(parsed.combinedAlert || parsed.predictedLabel) && (
                           <div className="flex flex-wrap items-center gap-2">
                             {parsed.combinedAlert && (
                               <Badge variant={alertVariant} className="font-normal">
-                                Combined: {parsed.combinedAlert}
+                                Assessment: {parsed.combinedAlert}
                               </Badge>
                             )}
                             {parsed.predictedLabel && (
                               <Badge variant="outline" className="font-normal">
-                                Model: {parsed.predictedLabel}
+                                Model prediction: {parsed.predictedLabel}
                               </Badge>
                             )}
                           </div>
                         )}
-                        {(elevatedPct || standardPct) && (
-                          <p className="text-xs text-muted-foreground">
-                            {elevatedPct && (
-                              <span>
-                                P(Elevated):{" "}
-                                <span className="font-mono text-foreground font-medium">{elevatedPct}</span>
-                              </span>
-                            )}
-                            {elevatedPct && standardPct ? " · " : null}
-                            {standardPct && (
-                              <span>
-                                P(Standard):{" "}
-                                <span className="font-mono text-foreground font-medium">{standardPct}</span>
-                              </span>
-                            )}
-                          </p>
-                        )}
-                        {parsed.ruleFlag === true &&
-                          parsed.rulesTriggered &&
-                          parsed.rulesTriggered.toLowerCase() !== "none" && (
-                            <p className="text-xs text-amber-800 dark:text-amber-300">
-                              Safety rules triggered: {parsed.rulesTriggered}
-                            </p>
-                          )}
-                        <Collapsible>
-                          <CollapsibleTrigger asChild>
-                            <Button variant="ghost" size="sm" className="h-8 px-2 text-xs text-muted-foreground">
-                              <ChevronDown className="h-3.5 w-3.5 mr-1" />
-                              Technical details
-                            </Button>
-                          </CollapsibleTrigger>
-                          <CollapsibleContent>
-                            <pre className="text-[10px] leading-snug overflow-auto max-h-36 p-2 rounded-md bg-muted/50 mt-1">
-                              {JSON.stringify(mlPred, null, 2)}
-                            </pre>
-                          </CollapsibleContent>
-                        </Collapsible>
+                        <p className="text-sm text-muted-foreground leading-relaxed mt-2">
+                          {buildRiskExplanation(parsed)}
+                        </p>
+                        {showRuleBadges ? (
+                          <div className="flex flex-wrap gap-1.5 mt-2">
+                            {rawRuleKeys.map((r) => (
+                              <Badge key={r} variant="secondary" className="text-[10px] font-normal max-w-full break-words">
+                                {formatRuleExplanation(r)}
+                              </Badge>
+                            ))}
+                          </div>
+                        ) : null}
                       </div>
                     );
                   }
                   const s = pickMlProxyScore(mlPred);
                   return s != null ? (
                     <div className="space-y-2">
-                      <p className="text-sm">
-                        Score: <span className="font-mono font-semibold">{s.toFixed(4)}</span>
+                      <p className="text-sm text-muted-foreground leading-relaxed mt-2">
+                        {s >= 0 && s <= 1
+                          ? `The service returned a probability-style estimate (${Math.round(s * 100)}%). The case risk badges above remain the official record.`
+                          : `The service returned a numeric estimate (${Number(s.toFixed(2))}). The case risk badges above remain the official record.`}
                       </p>
-                      <Collapsible>
-                        <CollapsibleTrigger asChild>
-                          <Button variant="ghost" size="sm" className="h-8 px-2 text-xs text-muted-foreground">
-                            <ChevronDown className="h-3.5 w-3.5 mr-1" />
-                            Technical details
-                          </Button>
-                        </CollapsibleTrigger>
-                        <CollapsibleContent>
-                          <pre className="text-[10px] leading-snug overflow-auto max-h-36 p-2 rounded-md bg-muted/50 mt-1">
-                            {JSON.stringify(mlPred, null, 2)}
-                          </pre>
-                        </CollapsibleContent>
-                      </Collapsible>
                     </div>
                   ) : null;
                 })()
