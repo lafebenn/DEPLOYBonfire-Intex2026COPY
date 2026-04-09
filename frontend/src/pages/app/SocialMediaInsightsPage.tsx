@@ -46,22 +46,18 @@ function normalizeMlScenario(raw: unknown): MlScenario | null {
   };
 }
 
-/** Present ML numeric output in plain language (model may return a probability or a count-like score). */
-function formatSocialMlEstimate(score: number): { headline: string; detail: string } {
-  if (!Number.isFinite(score)) {
+/** Social ML returns predicted_donation_referrals as a non-negative count (see API / Python pipeline). */
+function formatPredictedReferralCount(score: number): { headline: string; detail: string } {
+  if (!Number.isFinite(score) || score < 0) {
     return { headline: "—", detail: "No estimate is available for this combination yet." };
   }
-  if (score >= 0 && score <= 1) {
-    return {
-      headline: `${Math.round(score * 100)}%`,
-      detail: "Relative strength for this platform and post style in your selected period.",
-    };
-  }
-  const headline =
-    score >= 100 ? Math.round(score).toLocaleString() : Number(score.toFixed(1)).toString();
+  const n = Math.round(score);
   return {
-    headline,
-    detail: "Estimated support signal for this platform and post style in your selected period.",
+    headline: String(n),
+    detail:
+      n === 0
+        ? "Model output for this platform and format: zero estimated donation-linked referrals in the selected period (based on your top post in this bucket). This is a real prediction, not missing data."
+        : "Estimated donation-linked referrals for posts like this, based on your best-performing example of this platform and format in the selected period.",
   };
 }
 
@@ -227,26 +223,21 @@ export default function SocialMediaInsightsPage() {
     return mlScenarios.find((s) => s.platform === p && s.postType === t) ?? null;
   }, [mlScenarios, selectedPlatform, selectedPostType]);
 
-  const mlHasFiniteScore =
-    mlInferenceAvailable && activeMlScenario != null && Number.isFinite(activeMlScenario.score);
-
-  const showMlPercentage = mlHasFiniteScore && activeMlScenario!.score > 0;
-
-  const showMlLowImpact = mlHasFiniteScore && activeMlScenario!.score === 0;
-
   const mlNotCalculatedMessage =
     !mlInferenceAvailable ?
       "Unavailable — the prediction service is not connected, so we can’t generate an estimate for this combination."
     : !activeMlScenario ?
       "Not calculated yet—there isn’t enough data for this combination in the period you selected."
-    : !Number.isFinite(activeMlScenario.score) ?
+    : !Number.isFinite(activeMlScenario.score) || activeMlScenario.score < 0 ?
       "Not calculated yet—not enough reliable data for this combination."
     : null;
 
-  const mlEstimateDisplay = useMemo(
-    () => (showMlPercentage && activeMlScenario ? formatSocialMlEstimate(activeMlScenario.score) : null),
-    [showMlPercentage, activeMlScenario],
-  );
+  const mlReferralDisplay = useMemo(() => {
+    if (!mlInferenceAvailable || !activeMlScenario) return null;
+    const s = activeMlScenario.score;
+    if (!Number.isFinite(s) || s < 0) return null;
+    return formatPredictedReferralCount(s);
+  }, [mlInferenceAvailable, activeMlScenario]);
 
   useEffect(() => {
     if (!mlPlatforms.length) {
@@ -635,22 +626,15 @@ export default function SocialMediaInsightsPage() {
                 </div>
               </div>
 
-              {showMlPercentage && mlEstimateDisplay ? (
+              {mlReferralDisplay ? (
                 <div className="rounded-xl border border-border bg-muted/30 p-6 sm:p-8 space-y-3">
                   <p className="text-4xl sm:text-5xl font-heading font-bold tabular-nums tracking-tight text-foreground">
-                    {mlEstimateDisplay.headline}
+                    {mlReferralDisplay.headline}
                   </p>
-                  <p className="text-sm text-muted-foreground max-w-lg leading-relaxed">{mlEstimateDisplay.detail}</p>
-                </div>
-              ) : showMlLowImpact ? (
-                <div className="rounded-xl border border-border bg-muted/30 p-6 sm:p-8 space-y-3">
-                  <Badge variant="secondary" className="text-sm font-medium">
-                    Low predicted impact
-                  </Badge>
-                  <p className="text-sm text-muted-foreground max-w-lg leading-relaxed">
-                    The model ran successfully for this combination but predicts minimal donation-referral signal from posts
-                    like this in your selected period.
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide font-medium">
+                    Predicted donation referrals (model)
                   </p>
+                  <p className="text-sm text-muted-foreground max-w-lg leading-relaxed">{mlReferralDisplay.detail}</p>
                 </div>
               ) : mlNotCalculatedMessage ? (
                 <div className="rounded-xl border border-dashed border-border bg-muted/20 p-6 sm:p-8">

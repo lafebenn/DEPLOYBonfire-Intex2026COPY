@@ -12,9 +12,10 @@ export function BonfireLogo({
   const textSize = size === "lg" ? "text-2xl" : "text-xl";
   const textColorClass =
     variant === "sidebar" ? "text-sidebar-foreground" : "text-foreground";
+  const homeTo = variant === "sidebar" ? "/app" : "/";
 
   return (
-    <Link to="/" className="flex items-center gap-2 group">
+    <Link to={homeTo} className="flex items-center gap-2 group">
       <div className="relative">
         <Flame className="text-primary transition-transform group-hover:scale-110" size={iconSize} />
         <Flame className="text-primary/30 absolute inset-0 animate-glow" size={iconSize} />
