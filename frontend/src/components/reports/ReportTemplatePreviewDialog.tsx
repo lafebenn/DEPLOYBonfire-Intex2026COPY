@@ -553,9 +553,6 @@ export function ReportTemplatePreviewDialog({ open, onOpenChange, title, variant
                 <div className="text-center space-y-1 border-b border-border pb-4">
                   <p className="text-xs uppercase tracking-widest text-muted-foreground font-body">Donor update</p>
                   <h3 className="font-heading text-xl font-bold text-foreground">{donorImpact.monthHeading}</h3>
-                  <p className="text-sm text-muted-foreground font-body max-w-xl mx-auto">
-                    The previous calendar month only. No exact dollar amounts—just counts and plain-language impact.
-                  </p>
                 </div>
 
                 {donorImpact.emptyBanner ? (
@@ -1009,7 +1006,7 @@ export function ReportTemplatePreviewDialog({ open, onOpenChange, title, variant
               )}
               {variant === "donor-impact" && (
                 <Button type="button" onClick={() => downloadDonorImpactReportCsv(analytics)}>
-                  Download donor impact summary (CSV)
+                  Download Donor Impact Summary (CSV)
                 </Button>
               )}
             </div>

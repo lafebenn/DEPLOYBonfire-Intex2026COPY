@@ -20,6 +20,15 @@ public sealed class ResidentRiskPredictPayload
 {
     [JsonPropertyName("residents")]
     public List<ResidentRiskMlRow> Residents { get; set; } = [];
+
+    [JsonPropertyName("incidents")]
+    public List<ResidentIncidentMlRow>? Incidents { get; set; }
+
+    [JsonPropertyName("process_recordings")]
+    public List<ResidentProcessMlRow>? ProcessRecordings { get; set; }
+
+    [JsonPropertyName("visitations")]
+    public List<ResidentVisitationMlRow>? Visitations { get; set; }
 }
 
 public sealed class DonorLapsePredictPayload
@@ -67,6 +76,78 @@ public sealed class ResidentRiskMlRow
 
     [JsonPropertyName("open_intervention_count")]
     public int OpenInterventionCount { get; set; }
+}
+
+public sealed class ResidentIncidentMlRow
+{
+    [JsonPropertyName("incident_id")]
+    public int IncidentId { get; set; }
+
+    [JsonPropertyName("resident_id")]
+    public int ResidentId { get; set; }
+
+    [JsonPropertyName("incident_type")]
+    public string IncidentType { get; set; } = "";
+
+    [JsonPropertyName("severity")]
+    public string Severity { get; set; } = "";
+
+    [JsonPropertyName("resolved")]
+    public bool Resolved { get; set; }
+
+    [JsonPropertyName("follow_up_required")]
+    public bool FollowUpRequired { get; set; }
+}
+
+public sealed class ResidentProcessMlRow
+{
+    [JsonPropertyName("recording_id")]
+    public int RecordingId { get; set; }
+
+    [JsonPropertyName("resident_id")]
+    public int ResidentId { get; set; }
+
+    [JsonPropertyName("emotional_state_observed")]
+    public string EmotionalStateObserved { get; set; } = "";
+
+    [JsonPropertyName("emotional_state_end")]
+    public string EmotionalStateEnd { get; set; } = "";
+
+    [JsonPropertyName("progress_noted")]
+    public bool ProgressNoted { get; set; }
+
+    [JsonPropertyName("concerns_flagged")]
+    public bool ConcernsFlagged { get; set; }
+
+    [JsonPropertyName("referral_made")]
+    public bool ReferralMade { get; set; }
+
+    [JsonPropertyName("session_duration_minutes")]
+    public int SessionDurationMinutes { get; set; }
+}
+
+public sealed class ResidentVisitationMlRow
+{
+    [JsonPropertyName("visitation_id")]
+    public int VisitationId { get; set; }
+
+    [JsonPropertyName("resident_id")]
+    public int ResidentId { get; set; }
+
+    [JsonPropertyName("visit_type")]
+    public string VisitType { get; set; } = "";
+
+    [JsonPropertyName("visit_outcome")]
+    public string VisitOutcome { get; set; } = "";
+
+    [JsonPropertyName("family_cooperation_level")]
+    public string FamilyCooperationLevel { get; set; } = "";
+
+    [JsonPropertyName("safety_concerns_noted")]
+    public bool SafetyConcernsNoted { get; set; }
+
+    [JsonPropertyName("follow_up_needed")]
+    public bool FollowUpNeeded { get; set; }
 }
 
 public sealed class DonorLapseMlRow

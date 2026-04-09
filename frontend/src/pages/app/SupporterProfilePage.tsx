@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -32,7 +33,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Gift, Loader2, Mail, MapPin, Pencil, Phone, Plus, Trash2, User } from "lucide-react";
+import { ArrowLeft, CircleHelp, Gift, Loader2, Mail, MapPin, Pencil, Phone, Plus, Trash2, User } from "lucide-react";
 import { donorsApi, fetchDonorGivingPrediction, pickMlProxyScore, safehousesApi } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 
@@ -77,6 +78,13 @@ type ContactDraft = {
   region: string;
   country: string;
 };
+
+function givingTier(score: number): "High" | "Moderate" | "Low" {
+  const norm = score >= 0 && score <= 1 ? score * 100 : score;
+  if (norm >= 70) return "High";
+  if (norm >= 40) return "Moderate";
+  return "Low";
+}
 
 type DonationRow = {
   donationId: number;
@@ -573,23 +581,48 @@ export default function SupporterProfilePage() {
         </Card>
         <Card className="sm:col-span-2 lg:col-span-3">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground font-body">Estimated giving signal</CardTitle>
+            <div className="flex items-center gap-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground font-body">
+                Predicted giving potential
+              </CardTitle>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    className="text-muted-foreground hover:text-foreground rounded-full p-0.5 -m-0.5"
+                    aria-label="About this estimate"
+                  >
+                    <CircleHelp className="h-4 w-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="max-w-xs text-sm leading-relaxed">
+                  Estimated based on this supporter&apos;s giving history and profile. Shown as a guide only — not a
+                  guarantee of future gifts.
+                </TooltipContent>
+              </Tooltip>
+            </div>
+            <p className="text-xs text-muted-foreground font-normal mt-1 leading-relaxed">
+              Estimated based on this supporter&apos;s giving history and profile. Shown as a guide only — not a
+              guarantee of future gifts.
+            </p>
           </CardHeader>
           <CardContent className="text-sm">
-            <p className="text-xs text-muted-foreground mb-2">
-              Based on this supporter&apos;s history and profile. Shown as an estimate only.
-            </p>
             {givingMlLoading ? (
               <p className="text-muted-foreground">Loading…</p>
             ) : givingMlError ? (
               <p className="text-destructive text-xs">{givingMlError}</p>
             ) : givingMlScore != null ? (
               <p className="text-2xl font-heading font-bold tabular-nums">
-                {givingMlScore >= 0 && givingMlScore <= 1
-                  ? `${Math.round(givingMlScore * 100)}%`
-                  : givingMlScore >= 100
-                    ? Math.round(givingMlScore).toLocaleString()
-                    : Number(givingMlScore.toFixed(2))}
+                {(() => {
+                  const tier = givingTier(givingMlScore);
+                  const formatted =
+                    givingMlScore >= 0 && givingMlScore <= 1
+                      ? `${Math.round(givingMlScore * 100)}%`
+                      : givingMlScore >= 100
+                        ? Math.round(givingMlScore).toLocaleString()
+                        : Number(givingMlScore.toFixed(2));
+                  return `${tier} (${formatted})`;
+                })()}
               </p>
             ) : (
               <p className="text-muted-foreground text-sm">No estimate returned for this profile yet.</p>

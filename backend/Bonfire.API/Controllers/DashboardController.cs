@@ -234,13 +234,18 @@ public class DashboardController : ControllerBase
 
     /// <summary>
     /// Aggregated metrics for the Reports &amp; analytics page (single round-trip).
+    /// Staff see the full payload; donors receive a trimmed, organization-wide payload for the share-safe impact summary only.
     /// </summary>
-    [Authorize(Roles = "Admin,Staff")]
+    [Authorize(Roles = "Admin,Staff,Donor")]
     [HttpGet("reports-metrics")]
     public async Task<ActionResult<ApiResponse<object>>> ReportsMetrics(
         [FromQuery] int monthsBack = 12,
         [FromQuery] int? safehouseId = null)
     {
+        var isDonorOnly = User.IsInRole("Donor") && !(User.IsInRole("Staff") || User.IsInRole("Admin"));
+        if (isDonorOnly)
+            safehouseId = null;
+
         var now = DateTime.UtcNow;
         var today = DateOnly.FromDateTime(now);
         if (monthsBack < 1) monthsBack = 1;
@@ -249,7 +254,9 @@ public class DashboardController : ControllerBase
         var thisMonth = new DateOnly(today.Year, today.Month, 1);
         var fromMonth = thisMonth.AddMonths(-(monthsBack - 1));
         var periodLabel =
-            $"Last {monthsBack} month{(monthsBack == 1 ? "" : "s")} (live database as of {today:yyyy-MM-dd} UTC)";
+            isDonorOnly ?
+                $"Recent program activity (last {monthsBack} month{(monthsBack == 1 ? "" : "s")}, as of {today:yyyy-MM-dd} UTC)"
+            : $"Last {monthsBack} month{(monthsBack == 1 ? "" : "s")} (live database as of {today:yyyy-MM-dd} UTC)";
 
         var residentsQ = _db.Residents.AsNoTracking();
         if (safehouseId != null)
@@ -480,6 +487,24 @@ public class DashboardController : ControllerBase
                 incidentCount = m.IncidentCount
             })
             .ToListAsync();
+
+        if (isDonorOnly)
+        {
+            return Ok(ApiResponse<object>.Ok(new
+            {
+                generatedAtUtc = now.ToUniversalTime(),
+                periodLabel,
+                dataSource = "database",
+                monthsBack,
+                donationsByMonth,
+                byAllocation = allocBySafehouse,
+                donationCount,
+                donationTotal = 0d,
+                educationProgressByMonth = eduTrend,
+                healthScoreByMonth = healthTrend,
+                safehouseMonthly
+            }));
+        }
 
         return Ok(ApiResponse<object>.Ok(new
         {

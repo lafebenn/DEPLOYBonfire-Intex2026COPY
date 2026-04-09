@@ -11,6 +11,10 @@ import { HeartHandshake, Lock, ShieldCheck, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { donorPortalApi } from "@/lib/api";
 
+function formatPhp(n: number): string {
+  return new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP", maximumFractionDigits: 0 }).format(n);
+}
+
 type Frequency = "one_time" | "monthly";
 
 type DonateFormState = {
@@ -23,14 +27,14 @@ type DonateFormState = {
   isAnonymous: boolean;
 };
 
-const presetAmounts = [25, 50, 100, 250] as const;
+const presetAmounts = [500, 1000, 2500, 5000] as const;
 
 /** Demo: historical donations for the grading donor account (INTEX) */
 const DEMO_DONOR_HISTORY: { date: string; amount: string; type: string; reference: string }[] = [
-  { date: "2025-12-18", amount: "$100.00", type: "One-time", reference: "DN-2025-4412" },
-  { date: "2025-09-01", amount: "$50/mo", type: "Monthly", reference: "DN-2025-3891" },
-  { date: "2025-06-22", amount: "$250.00", type: "One-time", reference: "DN-2025-2104" },
-  { date: "2024-11-15", amount: "$25/mo", type: "Monthly", reference: "DN-2024-9001" },
+  { date: "2025-12-18", amount: `${formatPhp(5000)}`, type: "One-time", reference: "DN-2025-4412" },
+  { date: "2025-09-01", amount: `${formatPhp(2500)}/mo`, type: "Monthly", reference: "DN-2025-3891" },
+  { date: "2025-06-22", amount: `${formatPhp(12500)}`, type: "One-time", reference: "DN-2025-2104" },
+  { date: "2024-11-15", amount: `${formatPhp(1250)}/mo`, type: "Monthly", reference: "DN-2024-9001" },
 ];
 
 function readNumber(value: string) {
@@ -45,7 +49,7 @@ export default function DonatePage() {
   const [submittedId, setSubmittedId] = useState<string | null>(null);
   const [state, setState] = useState<DonateFormState>({
     frequency: "one_time",
-    amount: 50,
+    amount: 1000,
     firstName: "",
     lastName: "",
     email: "",
@@ -160,8 +164,11 @@ export default function DonatePage() {
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Amount</span>
-                  <span className="text-sm font-medium">${state.amount}</span>
+                  <span className="text-sm text-muted-foreground">Amount (PHP)</span>
+                  <span className="text-sm font-medium">
+                    {formatPhp(state.amount)}
+                    {state.frequency === "monthly" ? "/mo" : ""}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Reference</span>
@@ -296,7 +303,7 @@ export default function DonatePage() {
                   <p className="text-sm text-muted-foreground">{helperText}</p>
 
                   <div className="space-y-3">
-                    <Label>Choose an amount</Label>
+                    <Label>Choose an amount (PHP)</Label>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                       {presetAmounts.map((amt) => (
                         <button
@@ -309,21 +316,21 @@ export default function DonatePage() {
                           }`}
                           onClick={() => setState((s) => ({ ...s, amount: amt }))}
                         >
-                          ${amt}
+                          {formatPhp(amt)}
                         </button>
                       ))}
                     </div>
                     <div className="grid sm:grid-cols-2 gap-4 pt-1">
                       <div className="space-y-2">
-                        <Label htmlFor="customAmount">Custom amount</Label>
+                        <Label htmlFor="customAmount">Custom amount (PHP)</Label>
                         <div className="relative">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-                            $
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm pointer-events-none">
+                            ₱
                           </span>
                           <Input
                             id="customAmount"
                             inputMode="numeric"
-                            className="pl-7"
+                            className="pl-9"
                             value={state.amount.toString()}
                             onChange={(e) =>
                               setState((s) => ({
@@ -335,7 +342,7 @@ export default function DonatePage() {
                           />
                         </div>
                         <p id="amountHelp" className="text-xs text-muted-foreground">
-                          This is a demo form (no payment processing yet).
+                          Amounts are in Philippine pesos (PHP), matching how gifts are recorded. Demo form—no payment processing yet.
                         </p>
                       </div>
                       <div className="space-y-2">
@@ -462,7 +469,7 @@ export default function DonatePage() {
                         }
                       }}
                     >
-                      Donate ${state.amount}
+                      Donate {formatPhp(state.amount)}
                       {state.frequency === "monthly" ? "/mo" : ""}
                     </Button>
                   </div>

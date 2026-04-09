@@ -16,7 +16,7 @@ const templates = [
   "Reintegration & Transition Outcomes",
   "Resource Mobilization & Allocations",
   "Staff Activity & Documentation Compliance",
-  "Donor impact summary (share-safe)",
+  "Donor Impact Summary",
 ] as const;
 
 const statuses = ["Draft", "Final"] as const;

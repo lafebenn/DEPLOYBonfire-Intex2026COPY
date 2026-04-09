@@ -101,9 +101,9 @@ const REPORT_TEMPLATES: ReportTemplate[] = [
   },
   {
     id: "donor-impact-monthly",
-    title: "Donor impact summary (share-safe)",
+    title: "Donor Impact Summary",
     description:
-      "Previous calendar month only: short donor-friendly copy—gift counts and impact stories, no exact dollar amounts. Safe to forward.",
+      "How community giving shows up in care and programs: counts, gentle visuals, and plain language—written for supporters, not internal accounting.",
     lastRun: "Monthly (prior month)",
     exportFn: "donor-impact",
     preview: "donor-impact",
@@ -482,7 +482,7 @@ export default function ReportsPage() {
         <CardHeader className="pb-2">
           <CardTitle className="font-heading text-base">Reporting context</CardTitle>
           <CardDescription className="font-body text-sm leading-relaxed">
-            Use this page for staff decision-making and INTEX-required reporting: donation trends, outcome metrics
+            Use this page for staff decision-making and organizational reporting: donation trends, outcome metrics
             (education + health), safehouse comparisons, and reintegration tracking. Exports are aggregate-only.
           </CardDescription>
         </CardHeader>

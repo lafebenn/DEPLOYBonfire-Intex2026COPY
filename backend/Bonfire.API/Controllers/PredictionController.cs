@@ -139,11 +139,10 @@ public class PredictionController : ControllerBase
     {
         if (!EnsureMlConfigured(out var reject)) return reject!;
 
-        var row = await MlProxyPayloadMappers.MapResidentRiskRowAsync(_db, residentId, cancellationToken);
-        if (row == null)
+        var payload = await MlProxyPayloadMappers.BuildResidentRiskPayloadAsync(_db, residentId, cancellationToken);
+        if (payload == null)
             return NotFound(new { error = "Resident not found" });
 
-        var payload = new ResidentRiskPredictPayload { Residents = [row] };
         return await ProxyMlPredictAsync(
             "v1/resident-risk/predict",
             payload,

@@ -499,7 +499,7 @@ export const socialMediaApi = {
 export const dashboardApi = {
   admin: () => request<unknown>("/api/dashboard/admin"),
   impact: () => request<unknown>("/api/dashboard/impact"),
-  /** Aggregates for Reports & analytics (Admin, Staff). */
+  /** Aggregates for Reports & analytics (Admin, Staff); donors get a trimmed org-wide payload for the impact summary. */
   reportsMetrics: (params?: { monthsBack?: number; safehouseId?: number | null }) => {
     const q = new URLSearchParams();
     if (params?.monthsBack) q.set("monthsBack", String(params.monthsBack));
