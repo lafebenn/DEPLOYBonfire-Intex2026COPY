@@ -5,25 +5,37 @@ namespace Bonfire.API.Models;
 
 public static class MlProxyPayloadMappers
 {
-    public static async Task<ResidentRiskMlRow?> MapResidentRiskRowAsync(
+    public static async Task<ResidentRiskPredictPayload?> BuildResidentRiskPayloadAsync(
         AppDbContext db,
         int residentId,
         CancellationToken cancellationToken = default)
     {
-        var r = await db.Residents.AsNoTracking().FirstOrDefaultAsync(x => x.ResidentId == residentId, cancellationToken);
+        var r = await db.Residents.AsNoTracking()
+            .FirstOrDefaultAsync(x => x.ResidentId == residentId, cancellationToken);
         if (r == null) return null;
+
+        var recentSessions = await db.ProcessRecordings.AsNoTracking()
+            .Where(p => p.ResidentId == residentId)
+            .OrderByDescending(p => p.SessionDate)
+            .Take(10)
+            .ToListAsync(cancellationToken);
+
+        var negativeStates = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "Distressed", "Angry", "Anxious", "Sad", "Withdrawn",
+        };
+        decimal avgEmotional = recentSessions.Count == 0
+            ? 0.5m
+            : (decimal)recentSessions.Count(s => !negativeStates.Contains(s.EmotionalStateObserved ?? ""))
+              / recentSessions.Count;
 
         var recentIncidents = await db.IncidentReports.CountAsync(
             i => i.ResidentId == residentId && i.IncidentDate >= DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-90)),
             cancellationToken);
-        var lastSession = await db.ProcessRecordings.AsNoTracking()
-            .Where(p => p.ResidentId == residentId)
-            .OrderByDescending(p => p.SessionDate)
-            .Select(p => (DateOnly?)p.SessionDate)
-            .FirstOrDefaultAsync(cancellationToken);
+        var lastSession = recentSessions.FirstOrDefault();
         var daysSinceSession = lastSession == null
             ? 999
-            : DateOnly.FromDateTime(DateTime.UtcNow).DayNumber - lastSession.Value.DayNumber;
+            : DateOnly.FromDateTime(DateTime.UtcNow).DayNumber - lastSession.SessionDate.DayNumber;
         var edu = await db.EducationRecords.AsNoTracking()
             .Where(e => e.ResidentId == residentId)
             .OrderByDescending(e => e.RecordDate)
@@ -38,16 +50,66 @@ public static class MlProxyPayloadMappers
             p => p.ResidentId == residentId && p.Status != "Closed",
             cancellationToken);
 
-        return new ResidentRiskMlRow
+        var residentRow = new ResidentRiskMlRow
         {
             ResidentId = residentId,
-            CurrentRiskLevel = r.CurrentRiskLevel,
+            CurrentRiskLevel = r.CurrentRiskLevel ?? "",
             RecentIncidentCount = recentIncidents,
             DaysSinceLastSession = daysSinceSession,
-            AvgEmotionalStateScore = 0.5m,
+            AvgEmotionalStateScore = avgEmotional,
             EducationProgress = edu,
             HealthScore = health,
-            OpenInterventionCount = openIv
+            OpenInterventionCount = openIv,
+        };
+
+        var allIncidents = await db.IncidentReports.AsNoTracking()
+            .Where(i => i.ResidentId == residentId)
+            .ToListAsync(cancellationToken);
+        var incidentRows = allIncidents.Select(i => new ResidentIncidentMlRow
+        {
+            IncidentId = i.IncidentId,
+            ResidentId = i.ResidentId,
+            IncidentType = i.IncidentType,
+            Severity = i.Severity,
+            Resolved = i.Resolved,
+            FollowUpRequired = i.FollowUpRequired,
+        }).ToList();
+
+        var allSessions = await db.ProcessRecordings.AsNoTracking()
+            .Where(p => p.ResidentId == residentId)
+            .ToListAsync(cancellationToken);
+        var processRows = allSessions.Select(p => new ResidentProcessMlRow
+        {
+            RecordingId = p.RecordingId,
+            ResidentId = p.ResidentId,
+            EmotionalStateObserved = p.EmotionalStateObserved,
+            EmotionalStateEnd = p.EmotionalStateEnd,
+            ProgressNoted = p.ProgressNoted,
+            ConcernsFlagged = p.ConcernsFlagged,
+            ReferralMade = p.ReferralMade,
+            SessionDurationMinutes = p.SessionDurationMinutes,
+        }).ToList();
+
+        var allVisitations = await db.HomeVisitations.AsNoTracking()
+            .Where(v => v.ResidentId == residentId)
+            .ToListAsync(cancellationToken);
+        var visitationRows = allVisitations.Select(v => new ResidentVisitationMlRow
+        {
+            VisitationId = v.VisitationId,
+            ResidentId = v.ResidentId,
+            VisitType = v.VisitType,
+            VisitOutcome = v.VisitOutcome,
+            FamilyCooperationLevel = v.FamilyCooperationLevel,
+            SafetyConcernsNoted = v.SafetyConcernsNoted,
+            FollowUpNeeded = v.FollowUpNeeded,
+        }).ToList();
+
+        return new ResidentRiskPredictPayload
+        {
+            Residents = [residentRow],
+            Incidents = incidentRows.Count > 0 ? incidentRows : null,
+            ProcessRecordings = processRows.Count > 0 ? processRows : null,
+            Visitations = visitationRows.Count > 0 ? visitationRows : null,
         };
     }
 

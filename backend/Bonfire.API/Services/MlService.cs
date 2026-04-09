@@ -37,10 +37,9 @@ public class MlService
     public Task<decimal> GetResidentRiskScoreAsync(int residentId) =>
         GetOrRefreshAsync("ResidentRiskFlag", "Resident", residentId, async () =>
         {
-            var row = await MlProxyPayloadMappers.MapResidentRiskRowAsync(_db, residentId)
-                      ?? throw new InvalidOperationException("Resident not found");
-            var payload = new ResidentRiskPredictPayload { Residents = [row] };
-            var featureJson = JsonSerializer.Serialize(row, MlProxyJson.SerializerOptions);
+            var payload = await MlProxyPayloadMappers.BuildResidentRiskPayloadAsync(_db, residentId)
+                          ?? throw new InvalidOperationException("Resident not found");
+            var featureJson = JsonSerializer.Serialize(payload.Residents[0], MlProxyJson.SerializerOptions);
             return await PostMlV1PredictAsync("/v1/resident-risk/predict", payload, featureJson);
         });
 
@@ -234,6 +233,10 @@ public class MlService
                 score = ce2.GetDecimal();
             else if (row.TryGetProperty("confidence_standard", out var cs) && cs.ValueKind == JsonValueKind.Number)
                 score = 1m - cs.GetDecimal();
+            else if (row.TryGetProperty("predicted_donation_referrals", out var pdr) && pdr.ValueKind == JsonValueKind.Number)
+                score = pdr.GetDecimal();
+            else if (row.TryGetProperty("predictedDonationReferrals", out var pdr2) && pdr2.ValueKind == JsonValueKind.Number)
+                score = pdr2.GetDecimal();
 
             if (row.TryGetProperty("label", out var l))
                 label = l.GetString();
