@@ -28,6 +28,29 @@ public class DashboardController : ControllerBase
             .ToList();
     }
 
+    /// <summary>
+    /// Ordinal risk for program OKR: lower numeric value means lower clinical risk (better outcome).
+    /// </summary>
+    private static int? ResidentRiskRank(string? level)
+    {
+        if (string.IsNullOrWhiteSpace(level)) return null;
+        return level.Trim().ToLowerInvariant() switch
+        {
+            "low" => 1,
+            "medium" => 2,
+            "high" => 3,
+            "critical" => 4,
+            _ => null
+        };
+    }
+
+    private static bool ResidentRiskImprovedFromIntake(string initial, string current)
+    {
+        var ri = ResidentRiskRank(initial);
+        var rc = ResidentRiskRank(current);
+        return ri is { } a && rc is { } b && b < a;
+    }
+
     [Authorize(Roles = "Admin,Staff")]
     [HttpGet("admin")]
     public async Task<ActionResult<ApiResponse<object>>> Admin()
@@ -37,8 +60,16 @@ public class DashboardController : ControllerBase
         var inactiveStatuses = new[] { "closed", "archived", "discharged", "inactive", "completed" };
 
         // Treat case status comparisons as case-insensitive (prod data can vary in capitalization).
-        var activeResidentCount = await _db.Residents.CountAsync(r =>
-            r.CaseStatus != null && !inactiveStatuses.Contains(r.CaseStatus.ToLower()));
+        var activeRiskRows = await _db.Residents.AsNoTracking()
+            .Where(r => r.CaseStatus != null && !inactiveStatuses.Contains(r.CaseStatus.ToLower()))
+            .Select(r => new { r.InitialRiskLevel, r.CurrentRiskLevel })
+            .ToListAsync();
+        var activeResidentCount = activeRiskRows.Count;
+        var residentRecoveryImprovedCount = activeRiskRows.Count(r =>
+            ResidentRiskImprovedFromIntake(r.InitialRiskLevel, r.CurrentRiskLevel));
+        var residentRecoveryRatePercent = activeResidentCount > 0
+            ? (int)Math.Round(100.0 * residentRecoveryImprovedCount / activeResidentCount)
+            : 0;
 
         // Avoid loading the entire MlPredictions table (can hang or time out); only rows we need for this dashboard.
         var preds = await _db.MlPredictions.AsNoTracking()
@@ -189,6 +220,8 @@ public class DashboardController : ControllerBase
         {
             activeResidentCount,
             atRiskCount,
+            residentRecoveryRatePercent,
+            residentRecoveryImprovedCount,
             monthlyDonationTotal,
             donorsAtLapseRisk,
             residentsAtRisk,

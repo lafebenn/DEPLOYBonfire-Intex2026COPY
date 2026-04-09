@@ -20,7 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAuth } from "@/contexts/AuthContext";
-import { Users, Heart, Calendar, TrendingUp, FileText, Clock, Flame, UserPlus } from "lucide-react";
+import { Users, Heart, Calendar, FileText, Clock, Flame, UserPlus, BadgeCheck } from "lucide-react";
 import { Link } from "react-router-dom";
 import { authApi, dashboardApi } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
@@ -56,6 +56,8 @@ type AttentionResident = {
 type AdminDashboardData = {
   activeResidentCount: number;
   atRiskCount: number;
+  residentRecoveryRatePercent: number;
+  residentRecoveryImprovedCount: number;
   monthlyDonationTotal: number;
   safehouseOccupancy: SafehouseOcc[];
   recentDonations: RecentDonation[];
@@ -127,6 +129,8 @@ function normalizeAdminDashboard(raw: unknown): AdminDashboardData {
   return {
     activeResidentCount: pickNum(d.activeResidentCount, d.ActiveResidentCount),
     atRiskCount: pickNum(d.atRiskCount, d.AtRiskCount),
+    residentRecoveryRatePercent: pickNum(d.residentRecoveryRatePercent, d.ResidentRecoveryRatePercent),
+    residentRecoveryImprovedCount: pickNum(d.residentRecoveryImprovedCount, d.ResidentRecoveryImprovedCount),
     monthlyDonationTotal: pickNum(d.monthlyDonationTotal, d.MonthlyDonationTotal),
     safehouseOccupancy,
     recentDonations,
@@ -280,9 +284,21 @@ export default function AdminDashboard() {
   if (error) return <div className="p-8 text-destructive">{error}</div>;
   if (!data) return <div className="p-8 text-muted-foreground">No data</div>;
 
+  const recoveryDenom = data.activeResidentCount;
+  const recoveryNum = data.residentRecoveryImprovedCount;
+  const recoveryPct = data.residentRecoveryRatePercent;
+
   const stats = [
     { label: "Active Residents", value: String(data.activeResidentCount), icon: Users, trend: "Currently active cases" },
-    { label: "At-Risk Residents", value: String(data.atRiskCount), icon: TrendingUp, trend: "ML risk flag count" },
+    {
+      label: "Resident recovery rate",
+      value: `${recoveryPct}%`,
+      icon: BadgeCheck,
+      trend:
+        recoveryDenom > 0
+          ? `${recoveryNum} of ${recoveryDenom} people in active care are recorded at a lower risk level than when they first arrived.`
+          : "No active residents in caseload; this rate updates when cases are open.",
+    },
     { label: "This Month's Donations", value: formatPhp(Number(data.monthlyDonationTotal)), icon: Heart, trend: "Sum for current month" },
     { label: "Safehouses", value: String(data.safehouseOccupancy.length), icon: Calendar, trend: "Active safehouse sites" },
   ];
