@@ -8,26 +8,62 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import type { ReportAnalytics } from "@/lib/reportAnalytics";
+import { useMemo } from "react";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Line,
+  LineChart,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import {
   accomplishmentTableRows,
+  buildDonorImpactAllocationChart,
+  buildDonorImpactAtGlanceBarSeries,
+  buildDonorImpactEducationTimeline,
+  buildDonorImpactPreviousMonthView,
+  donorFacingAllocationDisplayName,
   downloadAccomplishmentAnnexCsv,
+  downloadDonorImpactReportCsv,
   downloadProgramComparisonCsv,
   downloadCsv,
 } from "@/lib/reportAnalytics";
 
-type Variant =
+export type ReportTemplatePreviewVariant =
   | "accomplishment"
   | "caseload"
   | "program"
   | "reintegration"
   | "safehouses"
-  | "staff";
+  | "staff"
+  | "donor-impact";
+
+const DONOR_CHART_PRIMARY = "hsl(24, 76%, 43%)";
+const DONOR_CHART_PRIMARY_MUTED = "hsl(24, 55%, 62%)";
+const DONOR_CHART_ACCENT = "hsl(17, 51%, 41%)";
+const DONOR_PIE_COLORS = [
+  "hsl(24, 76%, 43%)",
+  "hsl(17, 51%, 41%)",
+  "hsl(120, 15%, 42%)",
+  "hsl(200, 42%, 45%)",
+  "hsl(280, 32%, 50%)",
+  "hsl(40, 72%, 48%)",
+  "hsl(340, 45%, 52%)",
+  "hsl(160, 30%, 42%)",
+];
 
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title: string;
-  variant: Variant;
+  variant: ReportTemplatePreviewVariant;
   analytics: ReportAnalytics;
 };
 
@@ -43,6 +79,20 @@ function safehouseLatestRows(a: ReportAnalytics) {
 
 export function ReportTemplatePreviewDialog({ open, onOpenChange, title, variant, analytics }: Props) {
   const rows = accomplishmentTableRows(analytics);
+  const donorImpact = variant === "donor-impact" ? buildDonorImpactPreviousMonthView(analytics) : null;
+  const donorAtGlanceBar = useMemo(
+    () => (variant === "donor-impact" ? buildDonorImpactAtGlanceBarSeries(analytics, 12) : null),
+    [variant, analytics],
+  );
+  const donorAllocSlices = useMemo(
+    () => (donorImpact ? buildDonorImpactAllocationChart(analytics, donorImpact) : []),
+    [analytics, donorImpact],
+  );
+  const donorEduTimeline = useMemo(
+    () => (variant === "donor-impact" ? buildDonorImpactEducationTimeline(analytics, 12) : []),
+    [variant, analytics],
+  );
+  const donorEduChartReady = donorEduTimeline.filter((x) => x.pct != null).length >= 2;
   const refNo = `BF-RPT-${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
 
   const reintegration = (analytics.reintegrationByStatus ?? []).slice(0, 12);
@@ -57,13 +107,13 @@ export function ReportTemplatePreviewDialog({ open, onOpenChange, title, variant
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[calc(100vw-1.5rem)] max-w-4xl gap-0 overflow-hidden border-secondary/30 bg-[hsl(30,45%,98%)] p-0 sm:w-full print:max-w-none print:w-full print:overflow-visible print:bg-white">
+      <DialogContent className="report-dialog-print w-[calc(100vw-1.5rem)] max-w-4xl gap-0 overflow-hidden border-secondary/30 bg-[hsl(30,45%,98%)] p-0 sm:w-full print:max-w-none print:w-full print:overflow-visible print:bg-white">
         <DialogHeader className="sr-only">
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>Report preview for printing or export.</DialogDescription>
         </DialogHeader>
 
-        <div className="max-h-[calc(90vh-2rem)] overflow-y-auto overflow-x-hidden overscroll-y-contain px-6 pb-6 pt-14 sm:max-h-[calc(90vh-3rem)] sm:px-8 sm:pb-8 sm:pt-16 print:max-h-none print:overflow-visible print:px-8 print:pb-8 print:pt-8">
+        <div className="report-print-inner max-h-[calc(90vh-2rem)] overflow-y-auto overflow-x-hidden overscroll-y-contain px-6 pb-6 pt-14 sm:max-h-[calc(90vh-3rem)] sm:px-8 sm:pb-8 sm:pt-16 print:max-h-none print:overflow-visible print:px-8 print:pb-8 print:pt-8">
           <div className="space-y-6 text-foreground">
             <div className="text-center border-y-4 border-double border-secondary/60 py-6 px-4 bg-card/80">
               <p className="text-xs uppercase tracking-widest text-muted-foreground mt-1 font-body">
@@ -498,6 +548,336 @@ export function ReportTemplatePreviewDialog({ open, onOpenChange, title, variant
               </section>
             )}
 
+            {variant === "donor-impact" && donorImpact && (
+              <section className="space-y-6">
+                <div className="text-center space-y-1 border-b border-border pb-4">
+                  <p className="text-xs uppercase tracking-widest text-muted-foreground font-body">Donor update</p>
+                  <h3 className="font-heading text-xl font-bold text-foreground">{donorImpact.monthHeading}</h3>
+                  <p className="text-sm text-muted-foreground font-body max-w-xl mx-auto">
+                    The previous calendar month only. No exact dollar amounts—just counts and plain-language impact.
+                  </p>
+                </div>
+
+                {donorImpact.emptyBanner ? (
+                  <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 text-sm font-body text-foreground leading-relaxed">
+                    {donorImpact.emptyBanner}
+                  </div>
+                ) : null}
+
+                <div className="rounded-xl border border-secondary/25 bg-muted/20 p-4 sm:p-5 space-y-4">
+                  <h4 className="font-heading text-sm font-bold text-foreground">At a glance</h4>
+                  <p className="text-xs text-muted-foreground font-body">
+                    Charts use <strong className="text-foreground font-medium">counts</strong> and{" "}
+                    <strong className="text-foreground font-medium">rounded shares</strong>—helpful for spotting momentum, not for
+                    accounting.
+                  </p>
+                  <div className="grid gap-6 lg:grid-cols-2">
+                    <div className="min-h-[280px] space-y-2">
+                      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground font-body">
+                        {donorAtGlanceBar?.kind === "programActivity" ?
+                          "Field & documentation activity (per month)"
+                        : donorAtGlanceBar?.kind === "gifts" ?
+                          "Gifts recorded (how often people gave)"
+                        : donorAtGlanceBar?.kind === "education" ?
+                          "Education progress (avg. % where tracked)"
+                        : donorAtGlanceBar?.kind === "health" ?
+                          "Wellbeing scores (avg. where tracked)"
+                        : donorAtGlanceBar?.kind === "residents" ?
+                          "People in program (monthly snapshot)"
+                        : "Program footprint over recent months"}
+                      </p>
+                      {!donorAtGlanceBar || donorAtGlanceBar.points.length === 0 ? (
+                        <p className="text-sm text-muted-foreground font-body py-8">
+                          No monthly program footprint in the reporting window yet—this fills in as sites sync operational data.
+                        </p>
+                      ) : (
+                        <ResponsiveContainer width="100%" height={248}>
+                          <BarChart
+                            data={donorAtGlanceBar.points}
+                            margin={{ top: 20, right: 10, left: 4, bottom: 32 }}
+                          >
+                            <CartesianGrid strokeDasharray="3 3" className="stroke-border/60" />
+                            <XAxis
+                              dataKey="labelShort"
+                              tick={{ fontSize: 10, fill: "hsl(24, 28%, 38%)" }}
+                              interval={0}
+                              angle={donorAtGlanceBar.points.length > 6 ? -30 : 0}
+                              textAnchor={donorAtGlanceBar.points.length > 6 ? "end" : "middle"}
+                              height={donorAtGlanceBar.points.length > 6 ? 48 : 28}
+                            />
+                            <YAxis
+                              allowDecimals={donorAtGlanceBar.kind !== "education" && donorAtGlanceBar.kind !== "health"}
+                              domain={
+                                donorAtGlanceBar.kind === "education" || donorAtGlanceBar.kind === "health" ?
+                                  [0, 100]
+                                : undefined
+                              }
+                              tick={{ fontSize: 11, fill: "hsl(24, 28%, 38%)" }}
+                              width={donorAtGlanceBar.kind === "education" || donorAtGlanceBar.kind === "health" ? 36 : 32}
+                            />
+                            <Tooltip
+                              contentStyle={{
+                                background: "hsl(28, 80%, 97%)",
+                                border: "1px solid hsl(24, 30%, 86%)",
+                                borderRadius: "8px",
+                                fontSize: "12px",
+                              }}
+                              formatter={(v: number) => {
+                                const k = donorAtGlanceBar.kind;
+                                if (k === "programActivity") return [`${v} touchpoints`, "Visits & case notes"];
+                                if (k === "gifts") return [`${v} gifts`, "Recorded"];
+                                if (k === "education") return [`${v}%`, "Avg. progress"];
+                                if (k === "health") return [`${v}%`, "Avg. wellbeing"];
+                                return [`~${v} active slots`, "Combined sites"];
+                              }}
+                              labelFormatter={(_, p) => String(p?.[0]?.payload?.labelShort ?? "")}
+                            />
+                            <Bar dataKey="value" radius={[4, 4, 0, 0]} name="Month">
+                              {donorAtGlanceBar.points.map((e) => (
+                                <Cell
+                                  key={e.monthKey}
+                                  fill={
+                                    e.monthKey === donorImpact.monthKey ? DONOR_CHART_PRIMARY : DONOR_CHART_PRIMARY_MUTED
+                                  }
+                                />
+                              ))}
+                            </Bar>
+                          </BarChart>
+                        </ResponsiveContainer>
+                      )}
+                      <p className="text-[10px] text-muted-foreground font-body">
+                        {donorAtGlanceBar?.kind === "programActivity" ?
+                          "Darker bar = the letter month. Each bar counts home visits plus case notes logged (activity, not dollars)."
+                        : donorAtGlanceBar?.kind === "gifts" ?
+                          "Darker bar = the letter month. Counts separate gifts in our system—not dollar amounts."
+                        : donorAtGlanceBar?.kind === "education" ?
+                          "Darker bar = the letter month. Average progress only where education is tracked in the system."
+                        : donorAtGlanceBar?.kind === "health" ?
+                          "Darker bar = the letter month. Average wellbeing score where sites record it—not a clinical readout."
+                        : donorAtGlanceBar?.kind === "residents" ?
+                          "Darker bar = the letter month. Totals add active slots across sites—approximate capacity, not a daily headcount."
+                        : "When we have site-month or gift history, a chart will appear here."}
+                      </p>
+                    </div>
+
+                    <div className="min-h-[280px] space-y-2">
+                      {donorAllocSlices.length > 0 ? (
+                        <>
+                          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground font-body">
+                            Rough share of routed support (%)
+                          </p>
+                          <ResponsiveContainer width="100%" height={248}>
+                            <PieChart margin={{ top: 8, right: 8, bottom: 8, left: 8 }}>
+                              <Pie
+                                data={donorAllocSlices.map((s, i) => ({
+                                  name: donorFacingAllocationDisplayName(s.name, i),
+                                  value: s.pct,
+                                }))}
+                                dataKey="value"
+                                nameKey="name"
+                                cx="50%"
+                                cy="50%"
+                                innerRadius={44}
+                                outerRadius={72}
+                                paddingAngle={2}
+                                label={({ name, percent }) =>
+                                  `${String(name).length > 18 ? `${String(name).slice(0, 16)}…` : name} - ${(percent * 100).toFixed(0)}%`
+                                }
+                              >
+                                {donorAllocSlices.map((_, i) => (
+                                  <Cell key={i} fill={DONOR_PIE_COLORS[i % DONOR_PIE_COLORS.length]} />
+                                ))}
+                              </Pie>
+                              <Tooltip
+                                formatter={(v: number) => [`~${v}%`, "Approx. share"]}
+                                contentStyle={{
+                                  background: "hsl(28, 80%, 97%)",
+                                  border: "1px solid hsl(24, 30%, 86%)",
+                                  borderRadius: "8px",
+                                  fontSize: "12px",
+                                }}
+                              />
+                            </PieChart>
+                          </ResponsiveContainer>
+                          <p className="text-[10px] text-muted-foreground font-body">
+                            {donorImpact.allocationIsMonthScoped ?
+                              "Shares are based on gifts in the focus month."
+                            : "Shares reflect overall routing in connected data, not one month only."}
+                          </p>
+                        </>
+                      ) : donorEduChartReady ? (
+                        <>
+                          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground font-body">
+                            Average education progress (where tracked)
+                          </p>
+                          <ResponsiveContainer width="100%" height={248}>
+                            <LineChart
+                              data={donorEduTimeline.filter((x) => x.pct != null)}
+                              margin={{ top: 18, right: 10, left: 4, bottom: 8 }}
+                            >
+                              <CartesianGrid strokeDasharray="3 3" className="stroke-border/60" />
+                              <XAxis dataKey="labelShort" tick={{ fontSize: 10 }} />
+                              <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} width={28} />
+                              <Tooltip
+                                formatter={(v: number) => [`${v}%`, "Avg. progress"]}
+                                contentStyle={{
+                                  background: "hsl(28, 80%, 97%)",
+                                  border: "1px solid hsl(24, 30%, 86%)",
+                                  borderRadius: "8px",
+                                  fontSize: "12px",
+                                }}
+                              />
+                              <Line
+                                type="monotone"
+                                dataKey="pct"
+                                stroke={DONOR_CHART_ACCENT}
+                                strokeWidth={2}
+                                dot={{ r: 3 }}
+                                name="Progress %"
+                              />
+                            </LineChart>
+                          </ResponsiveContainer>
+                          <p className="text-[10px] text-muted-foreground font-body">
+                            From monthly education records—illustrative, not a guarantee for every resident.
+                          </p>
+                        </>
+                      ) : (
+                        <div className="flex h-[248px] items-center justify-center rounded-lg border border-dashed border-border bg-card/50 px-4">
+                          <p className="text-sm text-center text-muted-foreground font-body">
+                            A pie chart of how support is routed will show here when allocation data is available—or add more months of
+                            education history to see a trend line in this spot.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {donorAllocSlices.length > 0 && donorEduChartReady && donorAtGlanceBar?.kind !== "education" ? (
+                    <div className="space-y-2 pt-2 border-t border-border/60">
+                      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground font-body">
+                        Education progress over recent months
+                      </p>
+                      <div className="h-[248px] w-full max-w-xl mx-auto">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart
+                            data={donorEduTimeline.filter((x) => x.pct != null)}
+                            margin={{ top: 18, right: 12, left: 4, bottom: 8 }}
+                          >
+                            <CartesianGrid strokeDasharray="3 3" className="stroke-border/60" />
+                            <XAxis dataKey="labelShort" tick={{ fontSize: 10 }} />
+                            <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} width={28} />
+                            <Tooltip
+                              formatter={(v: number) => [`${v}%`, "Avg. progress"]}
+                              contentStyle={{
+                                background: "hsl(28, 80%, 97%)",
+                                border: "1px solid hsl(24, 30%, 86%)",
+                                borderRadius: "8px",
+                                fontSize: "12px",
+                              }}
+                            />
+                            <Line
+                              type="monotone"
+                              dataKey="pct"
+                              stroke={DONOR_CHART_ACCENT}
+                              strokeWidth={2}
+                              dot={{ r: 3 }}
+                            />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+
+                <div className="rounded-xl border border-border bg-card p-5 space-y-3">
+                  <h4 className="font-heading text-sm font-bold uppercase tracking-wide text-primary">Generosity</h4>
+                  {donorImpact.giftCount != null ? (
+                    <p className="text-sm font-body text-muted-foreground leading-relaxed">
+                      <span className="text-foreground font-semibold tabular-nums">{donorImpact.giftCount}</span> gifts recorded in our
+                      system for this month—that is how many times people gave, not how much money.
+                    </p>
+                  ) : (
+                    <p className="text-sm font-body text-muted-foreground leading-relaxed">
+                      Gift counts for this month are not in the feed yet (they often finish a few days after month-end).
+                    </p>
+                  )}
+                  {donorImpact.giftTrendNote ? (
+                    <p className="text-sm font-body text-muted-foreground border-l-2 border-primary/30 pl-3">{donorImpact.giftTrendNote}</p>
+                  ) : null}
+                </div>
+
+                <div className="rounded-xl border border-border bg-card p-5 space-y-4">
+                  <h4 className="font-heading text-sm font-bold uppercase tracking-wide text-primary">Program life that month</h4>
+                  <div className="space-y-3 text-sm font-body text-muted-foreground leading-relaxed">
+                    <p>
+                      <span className="text-foreground font-semibold">Education &amp; skills — </span>
+                      {donorImpact.education}
+                    </p>
+                    <p>
+                      <span className="text-foreground font-semibold">Health &amp; wellbeing — </span>
+                      {donorImpact.health}
+                    </p>
+                    <p>
+                      <span className="text-foreground font-semibold">Home &amp; field visits — </span>
+                      {donorImpact.homeVisitsNarrative}
+                    </p>
+                    {donorImpact.caseNotesTotal != null && donorImpact.caseNotesTotal > 0 ? (
+                      <p>
+                        <span className="text-foreground font-semibold">Case notes filed — </span>
+                        About {donorImpact.caseNotesTotal} documentation touchpoints across sites (staff time on record, not dollars).
+                      </p>
+                    ) : null}
+                    {donorImpact.activeResidentsApprox != null && donorImpact.activeResidentsApprox > 0 ? (
+                      <p>
+                        <span className="text-foreground font-semibold">Residents in care — </span>
+                        Sites reported roughly {donorImpact.activeResidentsApprox} active slots combined this month—a snapshot, not a
+                        headcount for every person every day.
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-border bg-card p-5 space-y-3">
+                  <h4 className="font-heading text-sm font-bold uppercase tracking-wide text-primary">Where gifts were aimed</h4>
+                  <p className="text-xs text-muted-foreground font-body">
+                    {donorImpact.allocationIsMonthScoped ?
+                      "Each line is from gifts recorded in this month. Shares are relative—never exact dollar amounts."
+                    : donorImpact.allocations.length > 0 ?
+                      "Overall routing patterns from our live data (not limited to a single month). Bank balances are never shown."
+                    : "When we have routing data, you’ll see how support flows to program areas."}
+                  </p>
+                  {donorImpact.allocations.length === 0 ? (
+                    <p className="text-sm font-body text-muted-foreground leading-relaxed">
+                      {donorImpact.allocationFooterNote ??
+                        "No fund tags for this month in the data we have—your team can add detail in a personal thank-you."}
+                    </p>
+                  ) : (
+                    <ul className="space-y-3 list-none pl-0">
+                      {donorImpact.allocations.map((r, i) => (
+                        <li
+                          key={`${r.name}-${i}`}
+                          className="text-sm font-body text-muted-foreground border-l-2 border-secondary/40 pl-3"
+                        >
+                          <span className="font-semibold text-foreground">
+                            {donorFacingAllocationDisplayName(r.name, i)}
+                          </span>{" "}
+                          — {r.role}. {r.bucket}. {r.giftLineNote}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {donorImpact.allocations.length > 0 && donorImpact.allocationFooterNote ? (
+                    <p className="text-xs text-muted-foreground font-body pt-1">{donorImpact.allocationFooterNote}</p>
+                  ) : null}
+                </div>
+
+                <p className="text-sm text-center text-muted-foreground font-body">
+                  Questions? Reach out to the office that shared this—we’re glad to talk without sharing private details in a mass
+                  letter.
+                </p>
+              </section>
+            )}
+
             {variant === "safehouses" && (
               <section className="space-y-3">
                 <h3 className="font-heading font-bold text-sm uppercase tracking-wide border-b border-border pb-1">
@@ -625,6 +1005,11 @@ export function ReportTemplatePreviewDialog({ open, onOpenChange, title, variant
                   }}
                 >
                   Download safehouse metrics (CSV)
+                </Button>
+              )}
+              {variant === "donor-impact" && (
+                <Button type="button" onClick={() => downloadDonorImpactReportCsv(analytics)}>
+                  Download donor impact summary (CSV)
                 </Button>
               )}
             </div>

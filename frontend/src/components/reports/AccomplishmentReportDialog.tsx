@@ -21,13 +21,13 @@ export function AccomplishmentReportDialog({ open, onOpenChange, reportTitle, an
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[calc(100vw-1.5rem)] max-w-3xl gap-0 overflow-hidden border-secondary/30 bg-[hsl(30,45%,98%)] p-0 sm:w-full print:max-w-none print:w-full print:overflow-visible print:bg-white">
+      <DialogContent className="report-dialog-print w-[calc(100vw-1.5rem)] max-w-3xl gap-0 overflow-hidden border-secondary/30 bg-[hsl(30,45%,98%)] p-0 sm:w-full print:max-w-none print:w-full print:overflow-visible print:bg-white">
         <DialogHeader className="sr-only">
           <DialogTitle>{reportTitle}</DialogTitle>
           <DialogDescription>Program accomplishment report preview for printing or export.</DialogDescription>
         </DialogHeader>
         {/* Explicit max-height so wheel / trackpad scroll works (ScrollArea + flex-1 inside transformed dialog was unreliable) */}
-        <div className="max-h-[calc(90vh-2rem)] overflow-y-auto overflow-x-hidden overscroll-y-contain px-6 pb-6 pt-14 sm:max-h-[calc(90vh-3rem)] sm:px-8 sm:pb-8 sm:pt-16 print:max-h-none print:overflow-visible print:px-8 print:pb-8 print:pt-8">
+        <div className="report-print-inner max-h-[calc(90vh-2rem)] overflow-y-auto overflow-x-hidden overscroll-y-contain px-6 pb-6 pt-14 sm:max-h-[calc(90vh-3rem)] sm:px-8 sm:pb-8 sm:pt-16 print:max-h-none print:overflow-visible print:px-8 print:pb-8 print:pt-8">
           <div className="space-y-6 text-foreground">
             <div className="text-center border-y-4 border-double border-secondary/60 py-6 px-4 bg-card/80">
               <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground font-body">

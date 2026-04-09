@@ -121,3 +121,51 @@
     @apply max-w-[1200px] mx-auto px-6 md:px-10;
   }
 }
+
+/* Report preview dialogs: print / Save as PDF must include full scrollable content, not one viewport slice. */
+@media print {
+  @page {
+    margin: 10mm 12mm;
+  }
+
+  html,
+  body {
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* Report modals portal to `body` beside `#root`; without this, the PDF includes the full Reports page behind the dialog. */
+  body:has(.report-dialog-print) #root {
+    display: none !important;
+  }
+
+  .report-dialog-print {
+    position: static !important;
+    inset: auto !important;
+    left: auto !important;
+    top: auto !important;
+    transform: none !important;
+    width: 100% !important;
+    max-width: none !important;
+    max-height: none !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    z-index: auto !important;
+  }
+
+  .report-print-inner {
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  .report-print-inner .overflow-x-auto {
+    overflow: visible !important;
+  }
+
+  .report-print-inner .recharts-responsive-container {
+    min-height: 248px !important;
+  }
+}

@@ -17,18 +17,22 @@ import {
   Users,
 } from "lucide-react";
 import { Link } from "react-router-dom";
-import { dashboardApi, safehousesApi, staffReportRunsApi, type StaffReportRunRow } from "@/lib/api";
+import { dashboardApi, safehousesApi } from "@/lib/api";
 import type { ReportAnalytics, SafehouseMonthlyRow } from "@/lib/reportAnalytics";
 import { useIsMobile } from "@/hooks/use-mobile";
 import {
   computeReportAnalytics,
   mapDashboardReportsMetrics,
   downloadAccomplishmentAnnexCsv,
+  downloadDonorImpactReportCsv,
   downloadProgramComparisonCsv,
   downloadCsv,
 } from "@/lib/reportAnalytics";
 import { AccomplishmentReportDialog } from "@/components/reports/AccomplishmentReportDialog";
-import { ReportTemplatePreviewDialog } from "@/components/reports/ReportTemplatePreviewDialog";
+import {
+  ReportTemplatePreviewDialog,
+  type ReportTemplatePreviewVariant,
+} from "@/components/reports/ReportTemplatePreviewDialog";
 import {
   Bar,
   BarChart,
@@ -48,15 +52,9 @@ type ReportTemplate = {
   description: string;
   lastRun: string;
   /** Which CSV export best matches this template */
-  exportFn: "accomplishment" | "program" | "caseload";
+  exportFn: "accomplishment" | "program" | "caseload" | "donor-impact";
   /** Which preview dialog to show */
-  preview:
-    | "accomplishment"
-    | "caseload"
-    | "program"
-    | "reintegration"
-    | "safehouses"
-    | "staff";
+  preview: ReportTemplatePreviewVariant;
 };
 
 const REPORT_TEMPLATES: ReportTemplate[] = [
@@ -101,6 +99,15 @@ const REPORT_TEMPLATES: ReportTemplate[] = [
     exportFn: "accomplishment",
     preview: "staff",
   },
+  {
+    id: "donor-impact-monthly",
+    title: "Donor impact summary (share-safe)",
+    description:
+      "Previous calendar month only: short donor-friendly copy—gift counts and impact stories, no exact dollar amounts. Safe to forward.",
+    lastRun: "Monthly (prior month)",
+    exportFn: "donor-impact",
+    preview: "donor-impact",
+  },
 ];
 
 const CHART_PRIMARY = "hsl(24, 76%, 43%)";
@@ -110,6 +117,7 @@ const CHART_SAGE = "hsl(120, 15%, 42%)";
 function runExport(kind: ReportTemplate["exportFn"], analytics: ReportAnalytics) {
   if (kind === "accomplishment") downloadAccomplishmentAnnexCsv(analytics);
   else if (kind === "program") downloadProgramComparisonCsv(analytics);
+  else if (kind === "donor-impact") downloadDonorImpactReportCsv(analytics);
   else {
     const statusRows = Object.entries(analytics.byStatus).map(([k, v]) => [k, String(v)]);
     downloadCsv(
@@ -133,46 +141,12 @@ export default function ReportsPage() {
     donationByChannel?: ReportAnalytics["donationByChannel"];
     donationByCampaign?: ReportAnalytics["donationByCampaign"];
   } | null>(null);
-  const [staffReportRuns, setStaffReportRuns] = useState<StaffReportRunRow[]>([]);
-  const [staffRunsLoading, setStaffRunsLoading] = useState(true);
-  const [staffRunsError, setStaffRunsError] = useState<string | null>(null);
   const [preview, setPreview] = useState<{ open: boolean; title: string }>({ open: false, title: "" });
   const [templatePreview, setTemplatePreview] = useState<{
     open: boolean;
     title: string;
-    variant: ReportTemplate["preview"];
+    variant: ReportTemplatePreviewVariant;
   }>({ open: false, title: "", variant: "accomplishment" });
-
-  useEffect(() => {
-    let cancelled = false;
-    setStaffRunsLoading(true);
-    setStaffRunsError(null);
-    staffReportRunsApi
-      .list(20)
-      .then((res) => {
-        if (cancelled) return;
-        if (!res.success) {
-          setStaffRunsError(res.message || "Could not load report runs");
-          setStaffReportRuns([]);
-          return;
-        }
-        const raw = res.data;
-        const rows = Array.isArray(raw) ? raw : [];
-        setStaffReportRuns(rows as StaffReportRunRow[]);
-      })
-      .catch((e: unknown) => {
-        if (!cancelled) {
-          setStaffRunsError(e instanceof Error ? e.message : "Could not load report runs");
-          setStaffReportRuns([]);
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setStaffRunsLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   const [monthsBack, setMonthsBack] = useState("12");
   const [safehouseId, setSafehouseId] = useState<string>("all");
@@ -1019,57 +993,6 @@ export default function ReportsPage() {
           ))}
         </div>
       </div>
-
-      <Card className="card-warm border-secondary/25">
-        <CardHeader>
-          <CardTitle className="font-heading">Recent report runs</CardTitle>
-          <CardDescription className="font-body">
-            Saved to the database from Generate report run. Export annex CSVs from the templates above.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {staffRunsLoading ? (
-            <p className="text-sm text-muted-foreground">Loading report runs…</p>
-          ) : staffRunsError ? (
-            <p className="text-sm text-destructive">{staffRunsError}</p>
-          ) : staffReportRuns.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No report runs yet. Use Generate new report run to add one.</p>
-          ) : (
-            <div className="space-y-3">
-              {staffReportRuns.slice(0, 8).map((run) => (
-                <div
-                  key={run.staffReportRunId}
-                  className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 p-4 rounded-xl border border-border bg-card"
-                >
-                  <div className="min-w-0 space-y-1">
-                    <p className="font-medium font-heading text-sm">{run.title || run.templateTitle}</p>
-                    <p className="text-xs text-muted-foreground font-body">
-                      {run.templateTitle}
-                      {run.status ? ` · ${run.status}` : ""}
-                    </p>
-                    <p className="text-xs text-muted-foreground font-body">
-                      {run.reportingPeriodStart} → {run.reportingPeriodEnd}
-                      {run.safehouseName ? ` · ${run.safehouseName}` : ""}
-                    </p>
-                    <p className="text-xs text-muted-foreground font-body">
-                      Saved {new Date(run.createdAt).toLocaleString()}
-                    </p>
-                    {run.notes ? (
-                      <p className="text-sm text-muted-foreground mt-2 leading-relaxed font-body border-l-2 border-primary/30 pl-3">
-                        {run.notes}
-                      </p>
-                    ) : null}
-                  </div>
-                  <Button variant="outline" size="sm" className="shrink-0" onClick={() => downloadAccomplishmentAnnexCsv(analytics)}>
-                    <Download className="h-4 w-4 mr-1" />
-                    Annex CSV
-                  </Button>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
 
       <AccomplishmentReportDialog
         open={preview.open}
