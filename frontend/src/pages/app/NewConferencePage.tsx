@@ -93,7 +93,7 @@ export default function NewConferencePage() {
           </div>
 
           <div className="flex items-center justify-end gap-3">
-            <Button variant="outline" onClick={() => navigate("/app/case-conferences")} disabled={submitting}>
+            <Button variant="outline" onClick={() => navigate("/app/caseload")} disabled={submitting}>
               Cancel
             </Button>
             <Button
@@ -129,7 +129,7 @@ export default function NewConferencePage() {
                           ? `${title.trim()} linked to the case file.`
                           : `${title.trim()} linked to ${selectedResidents.length} case files.`,
                     });
-                    navigate("/app/case-conferences");
+                    navigate("/app/caseload");
                   })
                   .catch((err: Error) => setSubmitError(err.message ?? "Failed to save"))
                   .finally(() => setSubmitting(false));

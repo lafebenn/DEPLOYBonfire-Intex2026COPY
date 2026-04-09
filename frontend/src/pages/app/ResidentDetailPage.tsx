@@ -336,7 +336,7 @@ export default function ResidentDetailPage() {
               </Link>
             </Button>
             <Button variant="outline" size="sm" asChild>
-              <Link to="/app/case-conferences">
+              <Link to={`/app/conferences/new?residentId=${resident.residentId}`}>
                 <Calendar className="h-4 w-4 mr-2" />
                 Conferences
               </Link>
