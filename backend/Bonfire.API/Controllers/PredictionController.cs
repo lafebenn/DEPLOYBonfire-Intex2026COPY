@@ -173,18 +173,20 @@ public class PredictionController : ControllerBase
     }
 
     /// <summary>
-    /// Donor giving model (supporter profile features). See <see cref="DonorGivingMlRow"/> for TODO on Python alignment.
+    /// Donor giving model: supporter profile plus donation aggregates for Python <c>DonorGivingSupporter</c>.
     /// </summary>
     [HttpGet("donor-giving/{donorId:int}")]
     public async Task<IActionResult> GetDonorGiving(int donorId, CancellationToken cancellationToken)
     {
+        var outcome = await MlProxyPayloadMappers.MapDonorGivingRowAsync(_db, donorId, cancellationToken);
+        if (outcome.SupporterNotFound)
+            return NotFound(new { error = "Supporter not found" });
+        if (outcome.InsufficientDonationHistory)
+            return Ok(new { insufficient_data = true });
+
         if (!EnsureMlConfigured(out var reject)) return reject!;
 
-        var row = await MlProxyPayloadMappers.MapDonorGivingRowAsync(_db, donorId, cancellationToken);
-        if (row == null)
-            return NotFound(new { error = "Supporter not found" });
-
-        var payload = new DonorGivingPredictPayload { Supporters = [row] };
+        var payload = new DonorGivingPredictPayload { Supporters = [outcome.Row!] };
         return await ProxyMlPredictAsync(
             "v1/donor-giving/predict",
             payload,

@@ -137,23 +137,42 @@ public static class MlProxyPayloadMappers
         };
     }
 
-    public static async Task<DonorGivingMlRow?> MapDonorGivingRowAsync(
+    public static async Task<DonorGivingMapOutcome> MapDonorGivingRowAsync(
         AppDbContext db,
         int supporterId,
         CancellationToken cancellationToken = default)
     {
         var s = await db.Supporters.AsNoTracking().FirstOrDefaultAsync(x => x.SupporterId == supporterId, cancellationToken);
-        if (s == null) return null;
+        if (s == null)
+            return new DonorGivingMapOutcome { SupporterNotFound = true };
 
-        // TODO: Align with Python API preprocessing for engineered features (e.g. patsy / one-hot expansions).
-        return new DonorGivingMlRow
+        var donations = await db.Donations.AsNoTracking()
+            .Where(d => d.SupporterId == supporterId)
+            .OrderBy(d => d.DonationDate)
+            .ToListAsync(cancellationToken);
+
+        if (donations.Count == 0)
+            return new DonorGivingMapOutcome { InsufficientDonationHistory = true };
+
+        var first = donations[0].DonationDate;
+        var last = donations[^1].DonationDate;
+        var tenureDays = Math.Max(0, last.DayNumber - first.DayNumber);
+
+        var row = new DonorGivingMlRow
         {
             SupporterId = supporterId,
             SupporterType = s.SupporterType,
             AcquisitionChannel = s.AcquisitionChannel,
+            RelationshipType = s.RelationshipType,
             Region = s.Region,
-            Country = s.Country
+            Country = s.Country,
+            NDonations = donations.Count,
+            TenureDays = tenureDays,
+            FirstDonation = first.ToString("yyyy-MM-dd"),
+            LastDonation = last.ToString("yyyy-MM-dd"),
         };
+
+        return new DonorGivingMapOutcome { Row = row };
     }
 
     public static SocialMediaMlRow? MapSocialMediaRow(SocialMediaPost? p)

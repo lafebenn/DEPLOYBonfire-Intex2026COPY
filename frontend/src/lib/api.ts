@@ -28,6 +28,41 @@ export function getApiBaseUrl(): string {
   return getBaseUrl();
 }
 
+function mlProxyErrorMessage(text: string, status: number, fallbackStatusText: string): string {
+  const generic422 = "Request could not be processed.";
+  try {
+    const err = JSON.parse(text) as { error?: string; detail?: unknown };
+    if (typeof err.error === "string" && err.error.trim()) return err.error.trim();
+    const d = err.detail;
+    if (typeof d === "string" && d.trim()) return d.trim();
+    if (Array.isArray(d)) {
+      const parts = d
+        .map((item) => {
+          if (item && typeof item === "object" && "msg" in item) {
+            const m = (item as { msg?: string }).msg;
+            const loc = (item as { loc?: unknown }).loc;
+            if (typeof m === "string" && m.trim()) {
+              if (Array.isArray(loc) && loc.length > 0) {
+                const locStr = loc.map(String).join(".");
+                return `${locStr}: ${m.trim()}`;
+              }
+              return m.trim();
+            }
+          }
+          return null;
+        })
+        .filter((x): x is string => Boolean(x));
+      if (parts.length > 0) return parts.join("; ");
+    }
+  } catch {
+    /* fall through */
+  }
+  if (status === 422) return generic422;
+  const raw = text?.trim();
+  if (raw) return raw.length > 500 ? `${raw.slice(0, 500)}…` : raw;
+  return fallbackStatusText || "Request failed";
+}
+
 /** GET /api/prediction/* ML proxy (raw JSON, not ApiResponse). */
 async function fetchMlPredictionProxy(urlPath: string): Promise<unknown> {
   const base = getBaseUrl();
@@ -38,15 +73,7 @@ async function fetchMlPredictionProxy(urlPath: string): Promise<unknown> {
   });
   const text = await res.text();
   if (!res.ok) {
-    let msg = text || res.statusText;
-    try {
-      const err = JSON.parse(text) as { error?: string; detail?: string };
-      if (typeof err.error === "string" && err.error) msg = err.error;
-      else if (typeof err.detail === "string" && err.detail) msg = err.detail;
-    } catch {
-      /* use msg as-is */
-    }
-    throw new Error(msg);
+    throw new Error(mlProxyErrorMessage(text, res.status, res.statusText));
   }
   try {
     return JSON.parse(text) as unknown;
@@ -89,6 +116,10 @@ export function pickMlProxyScore(raw: unknown): number | null {
       "expectedGiving",
       "giving_score",
       "givingScore",
+      "predicted_total_amount",
+      "predictedTotalAmount",
+      "predicted_log_total",
+      "predictedLogTotal",
     ]) {
       const v = o[k];
       if (typeof v === "number" && Number.isFinite(v)) return v;
