@@ -223,23 +223,23 @@ app.MapGet("/health", () => Results.Json(new { status = "healthy" }))
     .AllowAnonymous()
     .WithName("Health");
 
-if (isDev)
+using (var scope = app.Services.CreateScope())
 {
-    using (var scope = app.Services.CreateScope())
+    var startupLogger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("Startup");
+    try
     {
-        var startupLogger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("Startup");
-        try
-        {
-            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            await db.Database.MigrateAsync();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        await db.Database.MigrateAsync();
 
+        if (isDev)
+        {
             var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("Seed");
             await DbSeeder.SeedAsync(scope.ServiceProvider, logger);
         }
-        catch (Exception ex)
-        {
-            startupLogger.LogError(ex, "Database migration or seed failed; starting without completing seed.");
-        }
+    }
+    catch (Exception ex)
+    {
+        startupLogger.LogError(ex, "Database migration or seed failed; starting without completing seed.");
     }
 }
 

@@ -5,6 +5,7 @@ using Bonfire.API.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 
 namespace Bonfire.API.Controllers;
 
@@ -15,11 +16,22 @@ public class SocialMediaPostsController : ControllerBase
 {
     private readonly AppDbContext _db;
     private readonly SanitizerService _s;
+    private readonly MlService _ml;
+    private readonly ILogger<SocialMediaPostsController> _logger;
+    private readonly IConfiguration _configuration;
 
-    public SocialMediaPostsController(AppDbContext db, SanitizerService s)
+    public SocialMediaPostsController(
+        AppDbContext db,
+        SanitizerService s,
+        MlService ml,
+        ILogger<SocialMediaPostsController> logger,
+        IConfiguration configuration)
     {
         _db = db;
         _s = s;
+        _ml = ml;
+        _logger = logger;
+        _configuration = configuration;
     }
 
     [HttpGet]
@@ -233,8 +245,47 @@ public class SocialMediaPostsController : ControllerBase
             insights.Add("No posts found in this date range. Add/import posts to unlock insights.");
         }
 
+        // Precompute ML donation scores per (platform, post type) using the strongest post in each bucket
+        // so the UI can show estimates immediately; results are cached in MlPredictions via MlService.
+        var pairKeys = await q
+            .Select(p => new { p.Platform, p.PostType })
+            .Distinct()
+            .OrderBy(x => x.Platform)
+            .ThenBy(x => x.PostType)
+            .ToListAsync();
+
+        var mlScenarios = new List<object>();
+        foreach (var pair in pairKeys)
+        {
+            try
+            {
+                var repId = await q
+                    .Where(p => p.Platform == pair.Platform && p.PostType == pair.PostType)
+                    .OrderByDescending(p => p.EstimatedDonationValuePhp)
+                    .ThenByDescending(p => p.DonationReferrals)
+                    .Select(p => p.PostId)
+                    .FirstAsync();
+
+                var score = await _ml.GetSocialMediaDonationScoreAsync(repId);
+                mlScenarios.Add(new
+                {
+                    platform = pair.Platform,
+                    postType = pair.PostType,
+                    representativePostId = repId,
+                    score = (double)score
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Skipping ML scenario for {Platform} / {PostType}", pair.Platform, pair.PostType);
+            }
+        }
+
+        var mlInferenceAvailable = !string.IsNullOrWhiteSpace(_configuration["ML_API_URL"]?.Trim());
+
         var response = new
         {
+            mlInferenceAvailable,
             period = new
             {
                 dateFrom = from,
@@ -264,11 +315,7 @@ public class SocialMediaPostsController : ControllerBase
             bestHours = hourScores.Select(h => new { hour = h.hour, score = scoreHourMax > 0 ? (double)(h.score / scoreHourMax) : 0.0 }),
             topPosts,
             insights,
-            ml = new
-            {
-                placeholder = true,
-                message = "ML recommendations will appear here after the pipeline is enabled."
-            },
+            mlScenarios,
             deltas = new
             {
                 donationsPhp = (totals?.estimatedDonationPhp ?? 0m) - (prevTotals?.estimatedDonationPhp ?? 0m),

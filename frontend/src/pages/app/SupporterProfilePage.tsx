@@ -129,6 +129,51 @@ function emptyAllocationRow(): AllocationFormRow {
   return { safehouseId: "", programArea: "Operations", amountAllocated: "" };
 }
 
+function normalizeSupporterFromApi(raw: unknown): SupporterApi {
+  const o = raw as Record<string, unknown>;
+  const pickStr = (...keys: string[]) => {
+    for (const k of keys) {
+      const v = o[k];
+      if (v != null && String(v).trim() !== "") return String(v);
+    }
+    return "";
+  };
+  const pickNum = (...keys: string[]) => {
+    for (const k of keys) {
+      const v = o[k];
+      if (typeof v === "number" && Number.isFinite(v)) return v;
+      const n = Number(v);
+      if (Number.isFinite(n)) return n;
+    }
+    return 0;
+  };
+  const optStr = (...keys: string[]) => {
+    for (const k of keys) {
+      const v = o[k];
+      if (v != null && String(v).trim() !== "") return String(v);
+    }
+    return null;
+  };
+  const fd = o.firstDonationDate ?? o.FirstDonationDate;
+  return {
+    supporterId: pickNum("supporterId", "SupporterId"),
+    displayName: pickStr("displayName", "DisplayName"),
+    supporterType: pickStr("supporterType", "SupporterType"),
+    status: pickStr("status", "Status"),
+    email: pickStr("email", "Email"),
+    phone: pickStr("phone", "Phone"),
+    region: pickStr("region", "Region"),
+    country: pickStr("country", "Country"),
+    acquisitionChannel: pickStr("acquisitionChannel", "AcquisitionChannel"),
+    firstDonationDate: fd != null ? String(fd).slice(0, 10) : null,
+    createdAt: o.createdAt != null ? String(o.createdAt) : o.CreatedAt != null ? String(o.CreatedAt) : undefined,
+    organizationName: optStr("organizationName", "OrganizationName"),
+    firstName: optStr("firstName", "FirstName"),
+    lastName: optStr("lastName", "LastName"),
+    relationshipType: pickStr("relationshipType", "RelationshipType"),
+  };
+}
+
 export default function SupporterProfilePage() {
   const { supporterId } = useParams<{ supporterId: string }>();
   const idNum = supporterId ? Number(supporterId) : NaN;
@@ -186,7 +231,7 @@ export default function SupporterProfilePage() {
     Promise.all([donorsApi.supporterGet(idNum), donorsApi.donationsList({ supporterId: String(idNum) })])
       .then(([supRes, donRes]) => {
         if (!supRes.success) throw new Error(supRes.message || "Supporter not found");
-        setProfile(supRes.data as SupporterApi);
+        setProfile(normalizeSupporterFromApi(supRes.data));
         if (donRes.success && Array.isArray(donRes.data)) setContributions(donRes.data as DonationRow[]);
       })
       .catch((err: Error) => setError(err.message ?? "Failed to load"))
@@ -528,22 +573,26 @@ export default function SupporterProfilePage() {
         </Card>
         <Card className="sm:col-span-2 lg:col-span-3">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground font-body">Donor giving (ML via API)</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground font-body">Estimated giving signal</CardTitle>
           </CardHeader>
           <CardContent className="text-sm">
             <p className="text-xs text-muted-foreground mb-2">
-              Score from <code className="text-[10px]">/api/prediction/donor-giving</code>; browser never calls Python directly.
+              Based on this supporter&apos;s history and profile. Shown as an estimate only.
             </p>
             {givingMlLoading ? (
               <p className="text-muted-foreground">Loading…</p>
             ) : givingMlError ? (
               <p className="text-destructive text-xs">{givingMlError}</p>
             ) : givingMlScore != null ? (
-              <p>
-                Model score: <span className="font-mono font-semibold">{givingMlScore.toFixed(4)}</span>
+              <p className="text-2xl font-heading font-bold tabular-nums">
+                {givingMlScore >= 0 && givingMlScore <= 1
+                  ? `${Math.round(givingMlScore * 100)}%`
+                  : givingMlScore >= 100
+                    ? Math.round(givingMlScore).toLocaleString()
+                    : Number(givingMlScore.toFixed(2))}
               </p>
             ) : (
-              <p className="text-muted-foreground">No score in response (check API JSON shape).</p>
+              <p className="text-muted-foreground text-sm">No estimate returned for this profile yet.</p>
             )}
           </CardContent>
         </Card>
@@ -596,7 +645,7 @@ export default function SupporterProfilePage() {
                     if (!res.success) throw new Error(res.message || "Update failed");
                     const fresh = await donorsApi.supporterGet(idNum);
                     if (!fresh.success) throw new Error(fresh.message || "Reload failed");
-                    setProfile(fresh.data as SupporterApi);
+                    setProfile(normalizeSupporterFromApi(fresh.data));
                     toast({ title: "Profile updated" });
                     setEditingContact(false);
                   } catch (e: unknown) {

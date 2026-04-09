@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -24,8 +25,9 @@ import {
   User,
   Users,
   AlertTriangle,
+  ChevronDown,
 } from "lucide-react";
-import { fetchResidentRiskPrediction, pickMlProxyScore, residentsApi } from "@/lib/api";
+import { fetchResidentRiskPrediction, parseResidentRiskMlResponse, pickMlProxyScore, residentsApi } from "@/lib/api";
 import { ResidentCaseEditDialog } from "@/components/ResidentCaseEditDialog";
 import { residentGetToWritePayload, type ResidentCaseWrite } from "@/lib/residentCaseWrite";
 import { useToast } from "@/hooks/use-toast";
@@ -153,6 +155,7 @@ export default function ResidentDetailPage() {
   const [mlPred, setMlPred] = useState<unknown>(null);
   const [mlPredLoading, setMlPredLoading] = useState(false);
   const [mlPredError, setMlPredError] = useState<string | null>(null);
+  const [mlRiskDetailsOpen, setMlRiskDetailsOpen] = useState(false);
   const [recordingsExpanded, setRecordingsExpanded] = useState(false);
   const [visitsExpanded, setVisitsExpanded] = useState(false);
 
@@ -172,6 +175,37 @@ export default function ResidentDetailPage() {
 
   const visibleRecordings = recordingsExpanded ? sortedRecordings : sortedRecordings.slice(0, HISTORY_PREVIEW);
   const visibleVisits = visitsExpanded ? sortedVisits : sortedVisits.slice(0, HISTORY_PREVIEW);
+
+  const residentMlSuccess = useMemo(() => {
+    if (mlPredLoading || mlPredError) return false;
+    const parsed = parseResidentRiskMlResponse(mlPred);
+    if (parsed) {
+      const trig = parsed.rulesTriggered?.trim() ?? "";
+      return (
+        parsed.confidenceElevated != null ||
+        parsed.confidenceStandard != null ||
+        (parsed.predictedLabel != null && String(parsed.predictedLabel).trim() !== "") ||
+        (parsed.combinedAlert != null && String(parsed.combinedAlert).trim() !== "") ||
+        (trig !== "" && trig.toLowerCase() !== "none") ||
+        parsed.ruleFlag === true
+      );
+    }
+    return pickMlProxyScore(mlPred) != null;
+  }, [mlPred, mlPredLoading, mlPredError]);
+
+  const mlRiskDetailText = useMemo(() => {
+    const parts: string[] = [];
+    if (mlPredError) parts.push(mlPredError);
+    if (!mlPredLoading && !residentMlSuccess) {
+      parts.push("No usable automated risk summary is available for this case yet.");
+    }
+    if (mlPred != null) {
+      parts.push(typeof mlPred === "string" ? mlPred : JSON.stringify(mlPred, null, 2));
+    } else if (!mlPredError && !mlPredLoading) {
+      parts.push("(Empty response body)");
+    }
+    return parts.filter((p) => p.length > 0).join("\n\n");
+  }, [mlPred, mlPredError, mlPredLoading, residentMlSuccess]);
 
   const loadResident = useCallback(() => {
     if (!residentId || Number.isNaN(idNum)) return;
@@ -214,6 +248,7 @@ export default function ResidentDetailPage() {
   useEffect(() => {
     setRecordingsExpanded(false);
     setVisitsExpanded(false);
+    setMlRiskDetailsOpen(false);
   }, [idNum]);
 
   useEffect(() => {
@@ -408,34 +443,129 @@ export default function ResidentDetailPage() {
                 </Badge>
               </div>
             </div>
-            <div className="rounded-lg border border-border/60 bg-muted/20 p-3 space-y-2">
-              <p className="text-xs font-medium text-foreground">ML risk estimate (via API)</p>
+            <div className="rounded-lg border border-border/60 bg-muted/20 p-3 space-y-3">
+              <p className="text-xs font-medium text-foreground">Automated risk insight</p>
               <p className="text-xs text-muted-foreground leading-relaxed">
-                Served by the Bonfire API proxy; the browser does not call the Python service directly.
+                Optional model-assisted summary. Case risk badges above remain the official record.
               </p>
               {mlPredLoading ? (
                 <p className="text-xs text-muted-foreground">Loading…</p>
-              ) : mlPredError ? (
-                <p className="text-xs text-destructive">{mlPredError}</p>
-              ) : (
+              ) : residentMlSuccess ? (
                 (() => {
-                  const s = pickMlProxyScore(mlPred);
-                  if (s != null) {
+                  const parsed = parseResidentRiskMlResponse(mlPred);
+                  if (parsed) {
+                    const elevatedPct =
+                      parsed.confidenceElevated != null
+                        ? `${Math.round(parsed.confidenceElevated * 1000) / 10}%`
+                        : null;
+                    const standardPct =
+                      parsed.confidenceStandard != null
+                        ? `${Math.round(parsed.confidenceStandard * 1000) / 10}%`
+                        : null;
+                    const looksElevated =
+                      parsed.combinedAlert?.toLowerCase().includes("elevated") ||
+                      parsed.predictedLabel?.toLowerCase().includes("elevated");
+                    const alertVariant = looksElevated ? "destructive" : "secondary";
                     return (
+                      <div className="space-y-2 text-sm">
+                        {(parsed.combinedAlert || parsed.predictedLabel) && (
+                          <div className="flex flex-wrap items-center gap-2">
+                            {parsed.combinedAlert && (
+                              <Badge variant={alertVariant} className="font-normal">
+                                Combined: {parsed.combinedAlert}
+                              </Badge>
+                            )}
+                            {parsed.predictedLabel && (
+                              <Badge variant="outline" className="font-normal">
+                                Model: {parsed.predictedLabel}
+                              </Badge>
+                            )}
+                          </div>
+                        )}
+                        {(elevatedPct || standardPct) && (
+                          <p className="text-xs text-muted-foreground">
+                            {elevatedPct && (
+                              <span>
+                                P(Elevated):{" "}
+                                <span className="font-mono text-foreground font-medium">{elevatedPct}</span>
+                              </span>
+                            )}
+                            {elevatedPct && standardPct ? " · " : null}
+                            {standardPct && (
+                              <span>
+                                P(Standard):{" "}
+                                <span className="font-mono text-foreground font-medium">{standardPct}</span>
+                              </span>
+                            )}
+                          </p>
+                        )}
+                        {parsed.ruleFlag === true &&
+                          parsed.rulesTriggered &&
+                          parsed.rulesTriggered.toLowerCase() !== "none" && (
+                            <p className="text-xs text-amber-800 dark:text-amber-300">
+                              Safety rules triggered: {parsed.rulesTriggered}
+                            </p>
+                          )}
+                        <Collapsible>
+                          <CollapsibleTrigger asChild>
+                            <Button variant="ghost" size="sm" className="h-8 px-2 text-xs text-muted-foreground">
+                              <ChevronDown className="h-3.5 w-3.5 mr-1" />
+                              Technical details
+                            </Button>
+                          </CollapsibleTrigger>
+                          <CollapsibleContent>
+                            <pre className="text-[10px] leading-snug overflow-auto max-h-36 p-2 rounded-md bg-muted/50 mt-1">
+                              {JSON.stringify(mlPred, null, 2)}
+                            </pre>
+                          </CollapsibleContent>
+                        </Collapsible>
+                      </div>
+                    );
+                  }
+                  const s = pickMlProxyScore(mlPred);
+                  return s != null ? (
+                    <div className="space-y-2">
                       <p className="text-sm">
                         Score: <span className="font-mono font-semibold">{s.toFixed(4)}</span>
                       </p>
-                    );
-                  }
-                  if (mlPred != null && typeof mlPred === "object") {
-                    return (
-                      <pre className="text-[10px] leading-snug overflow-auto max-h-36 text-muted-foreground">
-                        {JSON.stringify(mlPred, null, 2)}
-                      </pre>
-                    );
-                  }
-                  return <p className="text-xs text-muted-foreground">No data</p>;
+                      <Collapsible>
+                        <CollapsibleTrigger asChild>
+                          <Button variant="ghost" size="sm" className="h-8 px-2 text-xs text-muted-foreground">
+                            <ChevronDown className="h-3.5 w-3.5 mr-1" />
+                            Technical details
+                          </Button>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent>
+                          <pre className="text-[10px] leading-snug overflow-auto max-h-36 p-2 rounded-md bg-muted/50 mt-1">
+                            {JSON.stringify(mlPred, null, 2)}
+                          </pre>
+                        </CollapsibleContent>
+                      </Collapsible>
+                    </div>
+                  ) : null;
                 })()
+              ) : (
+                <div className="space-y-3">
+                  <p className="text-lg font-heading font-semibold text-foreground">Coming soon</p>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    An automated risk estimate will appear here when the service returns data for this case.
+                  </p>
+                  <Collapsible open={mlRiskDetailsOpen} onOpenChange={setMlRiskDetailsOpen}>
+                    <CollapsibleTrigger asChild>
+                      <Button variant="outline" size="sm" className="text-xs">
+                        <ChevronDown
+                          className={`h-3.5 w-3.5 mr-1.5 transition-transform ${mlRiskDetailsOpen ? "rotate-180" : ""}`}
+                        />
+                        {mlRiskDetailsOpen ? "Hide" : "Show"} error details
+                      </Button>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <pre className="text-[10px] leading-snug overflow-auto max-h-48 mt-2 p-3 rounded-md bg-muted/60 border border-border whitespace-pre-wrap break-words">
+                        {mlRiskDetailText}
+                      </pre>
+                    </CollapsibleContent>
+                  </Collapsible>
+                </div>
               )}
             </div>
             <Separator />

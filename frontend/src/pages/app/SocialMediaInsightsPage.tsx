@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { fetchSocialMediaPrediction, pickMlProxyScore, socialMediaApi } from "@/lib/api";
+import { socialMediaApi } from "@/lib/api";
 import { ExternalLink, Lightbulb, Megaphone, Share2, Sparkles, TrendingUp } from "lucide-react";
 
 function formatPhp(n: number) {
@@ -21,6 +21,48 @@ function formatReach(n: number) {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(0)}k`;
   return String(n);
+}
+
+type MlScenario = {
+  platform: string;
+  postType: string;
+  representativePostId: number;
+  score: number;
+};
+
+function normalizeMlScenario(raw: unknown): MlScenario | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const o = raw as Record<string, unknown>;
+  const platform = String(o.platform ?? o.Platform ?? "").trim();
+  const postType = String(o.postType ?? o.PostType ?? "").trim();
+  const representativePostId = Number(o.representativePostId ?? o.RepresentativePostId ?? NaN);
+  const score = Number(o.score ?? o.Score ?? NaN);
+  if (!platform || !postType || !Number.isFinite(representativePostId)) return null;
+  return {
+    platform,
+    postType,
+    representativePostId,
+    score: Number.isFinite(score) ? score : NaN,
+  };
+}
+
+/** Present ML numeric output in plain language (model may return a probability or a count-like score). */
+function formatSocialMlEstimate(score: number): { headline: string; detail: string } {
+  if (!Number.isFinite(score)) {
+    return { headline: "—", detail: "No estimate is available for this combination yet." };
+  }
+  if (score >= 0 && score <= 1) {
+    return {
+      headline: `${Math.round(score * 100)}%`,
+      detail: "Relative strength for this platform and post style in your selected period.",
+    };
+  }
+  const headline =
+    score >= 100 ? Math.round(score).toLocaleString() : Number(score.toFixed(1)).toString();
+  return {
+    headline,
+    detail: "Estimated support signal for this platform and post style in your selected period.",
+  };
 }
 
 /** Renders strings with **segments** as bold (demo copy only). */
@@ -86,10 +128,8 @@ export default function SocialMediaInsightsPage() {
   const [preset, setPreset] = useState<DatePreset>("last30");
   const [customFrom, setCustomFrom] = useState<string>("");
   const [customTo, setCustomTo] = useState<string>("");
-  const [mlPostId, setMlPostId] = useState<number | null>(null);
-  const [mlScore, setMlScore] = useState<number | null>(null);
-  const [mlLoading, setMlLoading] = useState(false);
-  const [mlError, setMlError] = useState<string | null>(null);
+  const [selectedPlatform, setSelectedPlatform] = useState<string>("");
+  const [selectedPostType, setSelectedPostType] = useState<string>("");
 
   const queryParams = useMemo(() => {
     const now = new Date();
@@ -161,42 +201,67 @@ export default function SocialMediaInsightsPage() {
   const bestHours = (data?.bestHours ?? []) as any[];
   const insights = (data?.insights ?? []) as string[];
   const topPosts = useMemo(() => (data?.topPosts ?? []) as any[], [data?.topPosts]);
+  const mlScenarios = useMemo(() => {
+    const raw = (data?.mlScenarios ?? (data as Record<string, unknown> | null)?.MlScenarios) as unknown;
+    const arr = Array.isArray(raw) ? raw : [];
+    return arr.map(normalizeMlScenario).filter((x): x is MlScenario => x !== null);
+  }, [data]);
+
+  const mlInferenceAvailable = Boolean(data?.mlInferenceAvailable);
+
+  const mlPlatforms = useMemo(() => {
+    const set = new Set(mlScenarios.map((s) => s.platform).filter(Boolean));
+    return [...set].sort((a, b) => a.localeCompare(b));
+  }, [mlScenarios]);
+
+  const mlPostTypesForPlatform = useMemo(() => {
+    if (!selectedPlatform) return [];
+    const p = selectedPlatform.trim();
+    const set = new Set(mlScenarios.filter((s) => s.platform === p).map((s) => s.postType).filter(Boolean));
+    return [...set].sort((a, b) => a.localeCompare(b));
+  }, [mlScenarios, selectedPlatform]);
+
+  const activeMlScenario = useMemo(() => {
+    const p = selectedPlatform.trim();
+    const t = selectedPostType.trim();
+    return mlScenarios.find((s) => s.platform === p && s.postType === t) ?? null;
+  }, [mlScenarios, selectedPlatform, selectedPostType]);
+
+  const showMlNumeric =
+    mlInferenceAvailable && activeMlScenario != null && Number.isFinite(activeMlScenario.score);
+
+  const mlNotCalculatedMessage =
+    !mlInferenceAvailable ?
+      "Not calculated yet—the prediction service is not connected, so we can’t generate an estimate for this combination."
+    : !activeMlScenario ?
+      "Not calculated yet—there isn’t enough data for this combination in the period you selected."
+    : !Number.isFinite(activeMlScenario.score) ?
+      "Not calculated yet—not enough reliable data for this combination."
+    : null;
+
+  const mlEstimateDisplay = useMemo(
+    () => (showMlNumeric && activeMlScenario ? formatSocialMlEstimate(activeMlScenario.score) : null),
+    [showMlNumeric, activeMlScenario],
+  );
 
   useEffect(() => {
-    if (!topPosts.length) {
-      setMlPostId(null);
+    if (!mlPlatforms.length) {
+      setSelectedPlatform("");
+      setSelectedPostType("");
       return;
     }
-    const ids = topPosts.map((p) => Number(p.postId)).filter((n) => Number.isFinite(n));
-    if (!ids.length) {
-      setMlPostId(null);
-      return;
-    }
-    setMlPostId((prev) => (prev != null && ids.includes(prev) ? prev : ids[0]!));
-  }, [topPosts]);
+    setSelectedPlatform((prev) => (prev && mlPlatforms.includes(prev) ? prev : mlPlatforms[0]!));
+  }, [mlPlatforms]);
 
   useEffect(() => {
-    if (mlPostId == null) {
-      setMlScore(null);
+    if (!mlPostTypesForPlatform.length) {
+      setSelectedPostType("");
       return;
     }
-    let cancelled = false;
-    setMlLoading(true);
-    setMlError(null);
-    fetchSocialMediaPrediction(mlPostId)
-      .then((raw) => {
-        if (!cancelled) setMlScore(pickMlProxyScore(raw));
-      })
-      .catch((e: unknown) => {
-        if (!cancelled) setMlError(e instanceof Error ? e.message : "ML request failed");
-      })
-      .finally(() => {
-        if (!cancelled) setMlLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [mlPostId]);
+    setSelectedPostType((prev) =>
+      prev && mlPostTypesForPlatform.includes(prev) ? prev : mlPostTypesForPlatform[0]!,
+    );
+  }, [mlPostTypesForPlatform]);
 
   const maxDay = Math.max(...bestDays.map((d) => Number(d.score) || 0), 0.01);
   const maxHour = Math.max(...bestHours.map((h) => Number(h.score) || 0), 0.01);
@@ -221,7 +286,7 @@ export default function SocialMediaInsightsPage() {
           <p className="text-muted-foreground text-sm mt-2 max-w-2xl leading-relaxed">
             Bonfire helps your team see what actually moves <strong>donations</strong> versus{" "}
             <strong>engagement alone</strong>, so you can post with purpose on a lean schedule.
-            This view is computed from your social posts table and will later include ML recommendations.
+            This view is built from your imported social posts for the period you select.
           </p>
         </div>
 
@@ -287,7 +352,7 @@ export default function SocialMediaInsightsPage() {
             <p className="text-2xl font-heading font-bold">
               {(Number(kpis?.avgEngagementRate ?? 0) * 100).toFixed(2)}%
             </p>
-            <p className="text-xs text-muted-foreground mt-1">(likes + comments + shares + saves) ÷ reach</p>
+            <p className="text-xs text-muted-foreground mt-1">Interactions compared to how many people saw the post</p>
           </CardContent>
         </Card>
         <Card>
@@ -328,9 +393,9 @@ export default function SocialMediaInsightsPage() {
                 <TableRow>
                   <TableHead>Platform</TableHead>
                   <TableHead className="text-right">Reach</TableHead>
-                  <TableHead className="text-right">Eng.</TableHead>
-                  <TableHead className="text-right">Ref.</TableHead>
-                  <TableHead className="text-right hidden md:table-cell">Est. PHP</TableHead>
+                  <TableHead className="text-right">Engagement</TableHead>
+                  <TableHead className="text-right">Gift links</TableHead>
+                  <TableHead className="text-right hidden md:table-cell">Est. value</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -393,9 +458,9 @@ export default function SocialMediaInsightsPage() {
                 <TableHead>Platform</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead className="text-right">Reach</TableHead>
-                <TableHead className="text-right">Eng.</TableHead>
-                <TableHead className="text-right">Ref.</TableHead>
-                <TableHead className="text-right">Est. PHP</TableHead>
+                <TableHead className="text-right">Engagement</TableHead>
+                <TableHead className="text-right">Gift links</TableHead>
+                <TableHead className="text-right">Est. value</TableHead>
                 <TableHead className="text-right">Open</TableHead>
               </TableRow>
             </TableHeader>
@@ -445,7 +510,7 @@ export default function SocialMediaInsightsPage() {
             Content type: engagement vs. donations
           </CardTitle>
           <p className="text-sm text-muted-foreground font-normal">
-            Answers “what should we post?”. Compare vanity metrics to <strong>donation referrals</strong> by post type.
+            Answers “what should we post?”. Compare attention to <strong>gift links</strong> by post type.
           </p>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -461,7 +526,7 @@ export default function SocialMediaInsightsPage() {
                 </div>
                 <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground mb-2">
                   <span>Avg. likes: <strong className="text-foreground">{Number(c.avgLikes ?? 0)}</strong></span>
-                  <span>Donation refs: <strong className="text-foreground">{Number(c.donationReferrals ?? 0)}</strong></span>
+                  <span>Gift links: <strong className="text-foreground">{Number(c.donationReferrals ?? 0)}</strong></span>
                 </div>
                 <p className="text-sm text-muted-foreground leading-snug">
                   Est. donation value: <strong className="text-foreground">{formatPhp(Number(c.estimatedDonationPhp ?? 0))}</strong>
@@ -477,7 +542,7 @@ export default function SocialMediaInsightsPage() {
           <CardHeader>
             <CardTitle className="font-heading text-lg">Best days to post</CardTitle>
             <p className="text-sm text-muted-foreground font-normal">
-              Relative composite score (reach + engagement + referrals).
+              Compared across days in this period using reach, interaction, and gift links.
             </p>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -505,46 +570,87 @@ export default function SocialMediaInsightsPage() {
         <CardHeader>
           <CardTitle className="font-heading text-lg flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-primary" />
-            Social post ML score (via API)
+            Estimated post impact
           </CardTitle>
           <p className="text-sm text-muted-foreground font-normal">
-            Live call to <code className="text-xs">/api/prediction/social-media/{"{postId}"}</code>. Pick a top post from the current
-            date range.
+            Pick the platform and post format you care about. The estimate uses your best-performing example of that
+            combination in this date range and is ready as soon as the page loads.
           </p>
         </CardHeader>
-        <CardContent className="space-y-4 text-sm">
-          {topPosts.length === 0 ? (
-            <p className="text-muted-foreground">No posts in range — widen the date filter to score a post.</p>
-          ) : (
-            <div className="grid gap-2 max-w-md">
-              <Label className="text-xs text-muted-foreground">Post</Label>
-              <Select
-                value={mlPostId != null ? String(mlPostId) : ""}
-                onValueChange={(v) => setMlPostId(Number(v))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select post" />
-                </SelectTrigger>
-                <SelectContent>
-                  {topPosts.map((p) => (
-                    <SelectItem key={p.postId} value={String(p.postId)}>
-                      {p.platform} · {p.postType} · est. {formatPhp(Number(p.estimatedDonationValuePhp ?? 0))}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-          {mlLoading ? <p className="text-muted-foreground">Loading…</p> : null}
-          {mlError ? <p className="text-destructive text-sm">{mlError}</p> : null}
-          {!mlLoading && !mlError && mlScore != null ? (
-            <p>
-              Model score: <span className="font-mono font-semibold">{mlScore.toFixed(4)}</span>
+        <CardContent className="space-y-6 text-sm">
+          {mlScenarios.length === 0 ? (
+            <p className="text-muted-foreground">
+              No platform and format combinations in this period yet. Widen the date range or add posts to unlock
+              estimates.
             </p>
-          ) : null}
-          {!mlLoading && !mlError && mlPostId != null && mlScore == null && topPosts.length > 0 ? (
-            <p className="text-muted-foreground text-xs">No numeric score found in JSON — showing raw response is not enabled here.</p>
-          ) : null}
+          ) : (
+            <>
+              <div className="grid gap-4 sm:grid-cols-2 max-w-xl">
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground">Platform</Label>
+                  <Select
+                    value={selectedPlatform}
+                    onValueChange={(v) => {
+                      setSelectedPlatform(v);
+                      const nextTypes = [
+                        ...new Set(mlScenarios.filter((s) => s.platform === v.trim()).map((s) => s.postType)),
+                      ].sort((a, b) => a.localeCompare(b));
+                      setSelectedPostType(nextTypes[0] ?? "");
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choose platform" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {mlPlatforms.map((p) => (
+                        <SelectItem key={p} value={p}>
+                          {p}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground">Post format</Label>
+                  <Select
+                    value={selectedPostType}
+                    onValueChange={setSelectedPostType}
+                    disabled={!mlPostTypesForPlatform.length}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choose format" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {mlPostTypesForPlatform.map((t) => (
+                        <SelectItem key={t} value={t}>
+                          {t}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {showMlNumeric && mlEstimateDisplay ? (
+                <div className="rounded-xl border border-border bg-muted/30 p-6 sm:p-8 space-y-3">
+                  <p className="text-4xl sm:text-5xl font-heading font-bold tabular-nums tracking-tight text-foreground">
+                    {mlEstimateDisplay.headline}
+                  </p>
+                  <p className="text-sm text-muted-foreground max-w-lg leading-relaxed">{mlEstimateDisplay.detail}</p>
+                </div>
+              ) : mlNotCalculatedMessage ? (
+                <div className="rounded-xl border border-dashed border-border bg-muted/20 p-6 sm:p-8">
+                  <p className="text-base font-medium text-foreground max-w-lg leading-relaxed">{mlNotCalculatedMessage}</p>
+                </div>
+              ) : null}
+
+              <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm text-muted-foreground leading-relaxed max-w-2xl">
+                <span className="font-medium text-foreground">Estimates only.</span> These numbers come from a statistical
+                model, not a guarantee of future results. Use them as one input alongside your team’s experience when you
+                plan content.
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
     </div>

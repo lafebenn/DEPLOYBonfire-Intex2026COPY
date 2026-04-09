@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { CookieConsentProvider } from "@/contexts/CookieConsentContext";
+import { CookieConsentBanner } from "@/components/CookieConsentBanner";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 
 import PublicLayout from "@/layouts/PublicLayout";
@@ -125,6 +126,7 @@ const App = () => (
 
             <Route path="*" element={<NotFound />} />
           </Routes>
+          <CookieConsentBanner />
           </CookieConsentProvider>
         </BrowserRouter>
       </TooltipProvider>
