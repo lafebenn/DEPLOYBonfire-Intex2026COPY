@@ -121,7 +121,7 @@ export default function SocialMediaInsightsPage() {
   const [data, setData] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [preset, setPreset] = useState<DatePreset>("last30");
+  const [preset, setPreset] = useState<DatePreset>("last90");
   const [customFrom, setCustomFrom] = useState<string>("");
   const [customTo, setCustomTo] = useState<string>("");
   const [selectedPlatform, setSelectedPlatform] = useState<string>("");
@@ -186,7 +186,7 @@ export default function SocialMediaInsightsPage() {
   const periodLabel = useMemo(() => {
     const from = data?.period?.dateFrom ? new Date(data.period.dateFrom) : null;
     const to = data?.period?.dateTo ? new Date(data.period.dateTo) : null;
-    if (!from || !to) return "Last 30 days";
+    if (!from || !to) return "Last 90 days";
     return `${from.toLocaleDateString()} – ${to.toLocaleDateString()}`;
   }, [data]);
 
