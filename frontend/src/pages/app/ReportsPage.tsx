@@ -12,11 +12,9 @@ import {
   FileText,
   HeartHandshake,
   Lightbulb,
-  Sparkles,
   TrendingUp,
   Users,
 } from "lucide-react";
-import { Link } from "react-router-dom";
 import { dashboardApi, safehousesApi } from "@/lib/api";
 import type { ReportAnalytics, SafehouseMonthlyRow } from "@/lib/reportAnalytics";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -352,16 +350,9 @@ export default function ReportsPage() {
             )}
           </div>
           <div className="mt-6 flex flex-wrap justify-center gap-3">
-            <Button asChild className="shadow-warm">
-              <Link to="/app/reports/generate">
-                <Sparkles className="h-4 w-4 mr-2" />
-                Generate new report run
-              </Link>
-            </Button>
             <Button
               type="button"
-              variant="outline"
-              className="border-secondary/40 bg-background/80"
+              className="shadow-warm"
               onClick={() =>
                 setTemplatePreview({ open: true, title: "Annual Program Accomplishment Report", variant: "accomplishment" })
               }
