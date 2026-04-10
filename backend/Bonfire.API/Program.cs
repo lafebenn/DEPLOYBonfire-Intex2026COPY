@@ -193,18 +193,21 @@ app.UseHttpsRedirection();
 
 var publicApiBase = builder.Configuration["PublicApi:BaseUrl"]?.Trim().TrimEnd('/')
                   ?? Environment.GetEnvironmentVariable("PUBLIC_API_BASE_URL")?.Trim().TrimEnd('/');
-var connectExtra = string.IsNullOrEmpty(publicApiBase) ? "" : $" {publicApiBase}";
-var csp = "default-src 'self'; " +
-          "script-src 'self'; " +
-          "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com; " +
-          "style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com; " +
-          "img-src 'self' data: https:; " +
-          $"connect-src 'self'{connectExtra} https://accounts.google.com; " +
-          "font-src 'self' https://fonts.gstatic.com; " +
-          "frame-src https://accounts.google.com; " +
-          "object-src 'none'; " +
-          "base-uri 'self'; " +
-          "form-action 'self';";
+// Extra API origin for connect-src when it differs from the hardcoded production host (e.g. local HTTPS).
+var connectExtra = string.IsNullOrEmpty(publicApiBase) ? "" : " " + publicApiBase;
+var csp =
+    "default-src 'self'; " +
+    "script-src 'self' https://accounts.google.com https://www.gstatic.com; " +
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com; " +
+    "connect-src 'self' https://bonfire-api-g5ejewbta7f6dtb4.centralus-01.azurewebsites.net https://accounts.google.com" +
+    connectExtra +
+    "; " +
+    "frame-src https://accounts.google.com; " +
+    "img-src 'self' data: https:; " +
+    "font-src 'self' https://fonts.gstatic.com; " +
+    "object-src 'none'; " +
+    "base-uri 'self'; " +
+    "form-action 'self';";
 
 app.Use(async (context, next) =>
 {
